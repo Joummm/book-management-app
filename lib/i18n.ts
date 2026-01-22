@@ -7,6 +7,9 @@ export const translations = {
     books: "Livros",
     addBook: "Adicionar Livro",
     logout: "Sair",
+    lightMode: "Modo Claro",
+    darkMode: "Modo Escuro",
+    language: "Idioma",
 
     // Auth
     login: "Entrar",
@@ -116,6 +119,9 @@ export const translations = {
     books: "Books",
     addBook: "Add Book",
     logout: "Logout",
+    lightMode: "Light Mode",
+    darkMode: "Dark Mode",
+    language: "Language",
 
     // Auth
     login: "Login",
@@ -226,6 +232,10 @@ export const translations = {
     books: "Libros",
     addBook: "Añadir Libro",
     logout: "Salir",
+    lightMode: "Modo Claro",
+    darkMode: "Modo Oscuro",
+    language: "Idioma",
+
 
     // Auth
     login: "Iniciar Sesión",
@@ -335,6 +345,9 @@ export const translations = {
     books: "Livres",
     addBook: "Ajouter un Livre",
     logout: "Déconnexion",
+    lightMode: "Mode Clair",
+    darkMode: "Mode Sombre",
+    language: "Langue",
 
     // Auth
     login: "Connexion",
