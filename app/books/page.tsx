@@ -1,18 +1,18 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { NavHeader } from "@/components/nav-header"
-import { BooksListContent } from "@/components/books-list-content"
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { NavHeader } from "@/components/nav-header";
+import { BooksListContent } from "@/components/books-list-content";
 
 export default async function BooksPage() {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (error || !user) {
-    redirect("/auth/login")
+    redirect("/auth/login");
   }
 
   // Fetch all books
@@ -20,7 +20,7 @@ export default async function BooksPage() {
     .from("books")
     .select("*")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: false });
 
   return (
     <div className="min-h-screen bg-background">
@@ -34,5 +34,5 @@ export default async function BooksPage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }

@@ -1,64 +1,85 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useApp } from "@/lib/contexts/app-context"
-import { getTranslations } from "@/lib/i18n"
-import type { Book } from "@/lib/types"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BookCard } from "@/components/book-card"
-import { Search, SlidersHorizontal } from "lucide-react"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Label } from "@/components/ui/label"
-import { GENRES } from "@/lib/types"
-import { Checkbox } from "@/components/ui/checkbox"
+import { useState } from "react";
+import { useApp } from "@/lib/contexts/app-context";
+import { getTranslations } from "@/lib/i18n";
+import type { Book } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { BookCard } from "@/components/book-card";
+import { Search, SlidersHorizontal } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Label } from "@/components/ui/label";
+import { GENRES } from "@/lib/types";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface BooksListContentProps {
-  books: Book[]
+  books: Book[];
 }
 
 export function BooksListContent({ books }: BooksListContentProps) {
-  const { locale } = useApp()
-  const t = getTranslations(locale)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<string>("latest")
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
+  const { locale } = useApp();
+  const t = getTranslations(locale);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<string>("latest");
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
   // Filter and sort books
   let filteredBooks = books.filter((book) => {
     const matchesSearch =
       book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      book.author.toLowerCase().includes(searchQuery.toLowerCase())
+      book.author.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesGenre = selectedGenres.length === 0 || selectedGenres.some((genre) => book.genres?.includes(genre))
+    const matchesGenre =
+      selectedGenres.length === 0 ||
+      selectedGenres.some((genre) => book.genres?.includes(genre));
 
-    return matchesSearch && matchesGenre
-  })
+    return matchesSearch && matchesGenre;
+  });
 
   // Sort books
   filteredBooks = [...filteredBooks].sort((a, b) => {
     switch (sortBy) {
       case "latest":
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        return (
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
       case "oldest":
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        return (
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
       case "aToZ":
-        return a.title.localeCompare(b.title)
+        return a.title.localeCompare(b.title);
       case "zToA":
-        return b.title.localeCompare(a.title)
+        return b.title.localeCompare(a.title);
       case "highestRated":
-        return (b.rating || 0) - (a.rating || 0)
+        return (b.rating || 0) - (a.rating || 0);
       case "lowestRated":
-        return (a.rating || 0) - (b.rating || 0)
+        return (a.rating || 0) - (b.rating || 0);
       default:
-        return 0
+        return 0;
     }
-  })
+  });
 
   const handleGenreToggle = (genre: string) => {
-    setSelectedGenres((prev) => (prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]))
-  }
+    setSelectedGenres((prev) =>
+      prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre],
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -66,7 +87,8 @@ export function BooksListContent({ books }: BooksListContentProps) {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{t.books}</h1>
         <p className="text-muted-foreground">
-          {filteredBooks.length} {filteredBooks.length === 1 ? "livro" : "livros"} encontrados
+          {filteredBooks.length}{" "}
+          {filteredBooks.length === 1 ? "livro" : "livros"} encontrados
         </p>
       </div>
 
@@ -101,7 +123,10 @@ export function BooksListContent({ books }: BooksListContentProps) {
         {/* Genre Filter Sheet */}
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" className="w-full md:w-auto bg-transparent">
+            <Button
+              variant="outline"
+              className="w-full md:w-auto bg-transparent"
+            >
               <SlidersHorizontal className="h-4 w-4 mr-2" />
               {t.filter}
               {selectedGenres.length > 0 && ` (${selectedGenres.length})`}
@@ -110,7 +135,9 @@ export function BooksListContent({ books }: BooksListContentProps) {
           <SheetContent>
             <SheetHeader>
               <SheetTitle>Filtrar por Género</SheetTitle>
-              <SheetDescription>Selecione os géneros que deseja ver</SheetDescription>
+              <SheetDescription>
+                Selecione os géneros que deseja ver
+              </SheetDescription>
             </SheetHeader>
             <div className="mt-6 space-y-4">
               <div className="space-y-3">
@@ -121,14 +148,21 @@ export function BooksListContent({ books }: BooksListContentProps) {
                       checked={selectedGenres.includes(genre)}
                       onCheckedChange={() => handleGenreToggle(genre)}
                     />
-                    <Label htmlFor={`filter-${genre}`} className="text-sm font-normal cursor-pointer">
+                    <Label
+                      htmlFor={`filter-${genre}`}
+                      className="text-sm font-normal cursor-pointer"
+                    >
                       {t[genre as keyof typeof t] || genre}
                     </Label>
                   </div>
                 ))}
               </div>
               {selectedGenres.length > 0 && (
-                <Button variant="outline" className="w-full bg-transparent" onClick={() => setSelectedGenres([])}>
+                <Button
+                  variant="outline"
+                  className="w-full bg-transparent"
+                  onClick={() => setSelectedGenres([])}
+                >
                   Limpar Filtros
                 </Button>
               )}
@@ -147,9 +181,13 @@ export function BooksListContent({ books }: BooksListContentProps) {
       ) : (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="text-muted-foreground">Nenhum livro encontrado</p>
-          {searchQuery && <p className="text-sm text-muted-foreground mt-2">Tente ajustar os filtros ou busca</p>}
+          {searchQuery && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Tente ajustar os filtros ou busca
+            </p>
+          )}
         </div>
       )}
     </div>
-  )
+  );
 }

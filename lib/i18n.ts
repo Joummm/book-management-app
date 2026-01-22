@@ -1,4 +1,4 @@
-export type Locale = "pt" | "en" | "es" | "fr"
+export type Locale = "pt" | "en" | "es" | "fr";
 
 export const translations = {
   pt: {
@@ -30,6 +30,34 @@ export const translations = {
     averageRating: "Nota Média",
     booksPerYear: "Livros por Ano",
     lastAddedBooks: "Últimos Livros Adicionados",
+    booksInCollection: "na coleção",
+    fromRated: "de {count} avaliados",
+    noRatings: "sem avaliações",
+    reading: "Em Leitura",
+    activeBooks: "livros ativos",
+    completion: "Conclusão",
+    completed: "finalizados",
+    yearlyOverview: "Histórico de livros adicionados por ano",
+    insights: "Insights",
+    collectionStatistics: "Estatísticas da sua coleção",
+    booksThisYear: "livros este ano",
+    topGenres: "Géneros Preferidos",
+    quickActions: "Ações Rápidas",
+    viewAllBooks: "Ver todos os livros",
+    addNewBook: "Adicionar um novo livro",
+    recentlyAdded: "Os livros mais recentes da sua coleção",
+    viewAll: "Ver todos",
+    emptyCollection: "Sua coleção está vazia",
+    startBuilding:
+      "Comece a construir sua biblioteca pessoal adicionando seus primeiros livros",
+    addFirstBook: "Adicionar Primeiro Livro",
+    overview: "Visão geral da sua coleção de livros",
+    noHistoricalData: "Nenhum dado histórico",
+    addBooksForStats: "Adicione livros para visualizar estatísticas",
+    noBooksThisYear: "Nenhum livro este ano",
+    booksAddedThisYear: "{count} livros adicionados este ano",
+    year: "Ano",
+    quantity: "Quantidade",
 
     // Book Form
     title: "Título",
@@ -99,8 +127,10 @@ export const translations = {
     bookCreated: "Livro criado com sucesso!",
     bookUpdated: "Livro atualizado com sucesso!",
     bookDeleted: "Livro eliminado com sucesso!",
-    deleteConfirm: "Tem certeza que deseja eliminar este livro? Esta ação é irreversível.",
-    unsavedChanges: "Tem alterações não salvas. Deseja sair sem salvar? As informações não salvas serão descartadas.",
+    deleteConfirm:
+      "Tem certeza que deseja eliminar este livro? Esta ação é irreversível.",
+    unsavedChanges:
+      "Tem alterações não salvas. Deseja sair sem salvar? As informações não salvas serão descartadas.",
     required: "obrigatório",
     optional: "opcional",
 
@@ -142,6 +172,34 @@ export const translations = {
     averageRating: "Average Rating",
     booksPerYear: "Books per Year",
     lastAddedBooks: "Last Added Books",
+    booksInCollection: "in collection",
+    fromRated: "from {count} rated",
+    noRatings: "no ratings",
+    reading: "Reading",
+    activeBooks: "active books",
+    completion: "Completion",
+    completed: "completed",
+    yearlyOverview: "History of books added per year",
+    insights: "Insights",
+    collectionStatistics: "Your collection statistics",
+    booksThisYear: "books this year",
+    topGenres: "Top Genres",
+    quickActions: "Quick Actions",
+    viewAllBooks: "View all books",
+    addNewBook: "Add a new book",
+    recentlyAdded: "The most recent books in your collection",
+    viewAll: "View all",
+    emptyCollection: "Your collection is empty",
+    startBuilding:
+      "Start building your personal library by adding your first books",
+    addFirstBook: "Add First Book",
+    overview: "Overview of your book collection",
+    noHistoricalData: "No historical data",
+    addBooksForStats: "Add books to view statistics",
+    noBooksThisYear: "No books this year",
+    booksAddedThisYear: "{count} books added this year",
+    year: "Year",
+    quantity: "Quantity",
 
     // Book Form
     title: "Title",
@@ -211,7 +269,8 @@ export const translations = {
     bookCreated: "Book created successfully!",
     bookUpdated: "Book updated successfully!",
     bookDeleted: "Book deleted successfully!",
-    deleteConfirm: "Are you sure you want to delete this book? This action is irreversible.",
+    deleteConfirm:
+      "Are you sure you want to delete this book? This action is irreversible.",
     unsavedChanges:
       "You have unsaved changes. Do you want to leave without saving? Unsaved information will be discarded.",
     required: "required",
@@ -236,7 +295,6 @@ export const translations = {
     darkMode: "Modo Oscuro",
     language: "Idioma",
 
-
     // Auth
     login: "Iniciar Sesión",
     signUp: "Registrarse",
@@ -256,6 +314,34 @@ export const translations = {
     averageRating: "Calificación Promedio",
     booksPerYear: "Libros por Año",
     lastAddedBooks: "Últimos Libros Añadidos",
+    booksInCollection: "en la colección",
+    fromRated: "de {count} evaluados",
+    noRatings: "sin evaluaciones",
+    reading: "Leyendo",
+    activeBooks: "libros activos",
+    completion: "Finalización",
+    completed: "finalizados",
+    yearlyOverview: "Historial de libros añadidos por año",
+    insights: "Análisis",
+    collectionStatistics: "Estadísticas de tu colección",
+    booksThisYear: "libros este año",
+    topGenres: "Géneros Favoritos",
+    quickActions: "Acciones Rápidas",
+    viewAllBooks: "Ver todos los libros",
+    addNewBook: "Añadir un nuevo libro",
+    recentlyAdded: "Los libros más recientes de tu colección",
+    viewAll: "Ver todos",
+    emptyCollection: "Tu colección está vacía",
+    startBuilding:
+      "Comienza a construir tu biblioteca personal añadiendo tus primeros libros",
+    addFirstBook: "Añadir Primer Libro",
+    overview: "Vista general de tu colección de libros",
+    noHistoricalData: "Sin datos históricos",
+    addBooksForStats: "Añade libros para ver estadísticas",
+    noBooksThisYear: "Ningún libro este año",
+    booksAddedThisYear: "{count} libros añadidos este año",
+    year: "Año",
+    quantity: "Cantidad",
 
     // Book Form
     title: "Título",
@@ -325,8 +411,10 @@ export const translations = {
     bookCreated: "¡Libro creado con éxito!",
     bookUpdated: "¡Libro actualizado con éxito!",
     bookDeleted: "¡Libro eliminado con éxito!",
-    deleteConfirm: "¿Está seguro de que desea eliminar este libro? Esta acción es irreversible.",
-    unsavedChanges: "Tiene cambios sin guardar. ¿Desea salir sin guardar? La información no guardada se descartará.",
+    deleteConfirm:
+      "¿Está seguro de que desea eliminar este libro? Esta acción es irreversible.",
+    unsavedChanges:
+      "Tiene cambios sin guardar. ¿Desea salir sin guardar? La información no guardada se descartará.",
     required: "obligatorio",
     optional: "opcional",
 
@@ -368,6 +456,34 @@ export const translations = {
     averageRating: "Note Moyenne",
     booksPerYear: "Livres par Année",
     lastAddedBooks: "Derniers Livres Ajoutés",
+    booksInCollection: "dans la collection",
+    fromRated: "de {count} évalués",
+    noRatings: "pas d'évaluations",
+    reading: "En Lecture",
+    activeBooks: "livres actifs",
+    completion: "Finalisation",
+    completed: "terminés",
+    yearlyOverview: "Historique des livres ajoutés par an",
+    insights: "Analyses",
+    collectionStatistics: "Statistiques de votre collection",
+    booksThisYear: "livres cette année",
+    topGenres: "Genres Préférés",
+    quickActions: "Actions Rapides",
+    viewAllBooks: "Voir tous les livres",
+    addNewBook: "Ajouter un nouveau livre",
+    recentlyAdded: "Les livres les plus récents de votre collection",
+    viewAll: "Voir tous",
+    emptyCollection: "Votre collection est vide",
+    startBuilding:
+      "Commencez à construire votre bibliothèque personnelle en ajoutant vos premiers livres",
+    addFirstBook: "Ajouter le Premier Livre",
+    overview: "Vue d'ensemble de votre collection de livres",
+    noHistoricalData: "Aucune donnée historique",
+    addBooksForStats: "Ajoutez des livres pour voir les statistiques",
+    noBooksThisYear: "Aucun livre cette année",
+    booksAddedThisYear: "{count} livres ajoutés cette année",
+    year: "Année",
+    quantity: "Quantité",
 
     // Book Form
     title: "Titre",
@@ -437,7 +553,8 @@ export const translations = {
     bookCreated: "Livre créé avec succès!",
     bookUpdated: "Livre mis à jour avec succès!",
     bookDeleted: "Livre supprimé avec succès!",
-    deleteConfirm: "Êtes-vous sûr de vouloir supprimer ce livre? Cette action est irréversible.",
+    deleteConfirm:
+      "Êtes-vous sûr de vouloir supprimer ce livre? Cette action est irréversible.",
     unsavedChanges:
       "Vous avez des modifications non sauvegardées. Voulez-vous quitter sans sauvegarder? Les informations non sauvegardées seront perdues.",
     required: "obligatoire",
@@ -452,8 +569,8 @@ export const translations = {
     highestRated: "Mieux Noté",
     lowestRated: "Moins Bien Noté",
   },
-}
+};
 
 export function getTranslations(locale: Locale) {
-  return translations[locale]
+  return translations[locale];
 }

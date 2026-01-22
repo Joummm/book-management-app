@@ -1,21 +1,21 @@
-"use client"
+"use client";
 
-import { useApp } from "@/lib/contexts/app-context"
-import { getTranslations } from "@/lib/i18n"
-import type { Book } from "@/lib/types"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { BookOpen, Edit, FileText, Star, Users } from "lucide-react"
-import Link from "next/link"
+import { useApp } from "@/lib/contexts/app-context";
+import { getTranslations } from "@/lib/i18n";
+import type { Book } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { BookOpen, Edit, FileText, Star, Users } from "lucide-react";
+import Link from "next/link";
 
 interface BookDetailsProps {
-  book: Book
+  book: Book;
 }
 
 export function BookDetails({ book }: BookDetailsProps) {
-  const { locale } = useApp()
-  const t = getTranslations(locale)
+  const { locale } = useApp();
+  const t = getTranslations(locale);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -69,55 +69,84 @@ export function BookDetails({ book }: BookDetailsProps) {
             <div className="grid gap-4 sm:grid-cols-2">
               {book.publisher && (
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Editora</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Editora
+                  </p>
                   <p>{book.publisher}</p>
                 </div>
               )}
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Formato</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Formato
+                </p>
                 <p>{book.format === "physical" ? t.physical : t.digital}</p>
               </div>
               {book.pages && (
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Páginas</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Páginas
+                  </p>
                   <p>{book.pages}</p>
                 </div>
               )}
               {book.release_date && (
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Data de Lançamento</p>
-                  <p>{new Date(book.release_date).toLocaleDateString(locale)}</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Data de Lançamento
+                  </p>
+                  <p>
+                    {new Date(book.release_date).toLocaleDateString(locale)}
+                  </p>
                 </div>
               )}
               {book.start_reading_date && (
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Início da Leitura</p>
-                  <p>{new Date(book.start_reading_date).toLocaleDateString(locale)}</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Início da Leitura
+                  </p>
+                  <p>
+                    {new Date(book.start_reading_date).toLocaleDateString(
+                      locale,
+                    )}
+                  </p>
                 </div>
               )}
               {book.finish_reading_date && (
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Fim da Leitura</p>
-                  <p>{new Date(book.finish_reading_date).toLocaleDateString(locale)}</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Fim da Leitura
+                  </p>
+                  <p>
+                    {new Date(book.finish_reading_date).toLocaleDateString(
+                      locale,
+                    )}
+                  </p>
                 </div>
               )}
               {book.would_read_again && (
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Voltaria a Ler?</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Voltaria a Ler?
+                  </p>
                   <p>{t[book.would_read_again as keyof typeof t]}</p>
                 </div>
               )}
-              {book.would_recommend !== null && book.would_recommend !== undefined && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Recomendaria?</p>
-                  <p>{book.would_recommend ? t.yes : t.no}</p>
-                </div>
-              )}
+              {book.would_recommend !== null &&
+                book.would_recommend !== undefined && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Recomendaria?
+                    </p>
+                    <p>{book.would_recommend ? t.yes : t.no}</p>
+                  </div>
+                )}
             </div>
 
             {book.genres && book.genres.length > 0 && (
               <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Géneros</p>
+                <p className="text-sm font-medium text-muted-foreground mb-2">
+                  Géneros
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {book.genres.map((genre) => (
                     <Badge key={genre} variant="secondary">
@@ -141,7 +170,9 @@ export function BookDetails({ book }: BookDetailsProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{book.review}</p>
+            <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+              {book.review}
+            </p>
           </CardContent>
         </Card>
       )}
@@ -175,7 +206,10 @@ export function BookDetails({ book }: BookDetailsProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             {book.quotes.map((quote, index) => (
-              <blockquote key={index} className="border-l-4 border-primary pl-4 italic text-muted-foreground">
+              <blockquote
+                key={index}
+                className="border-l-4 border-primary pl-4 italic text-muted-foreground"
+              >
                 "{quote}"
               </blockquote>
             ))}
@@ -183,5 +217,5 @@ export function BookDetails({ book }: BookDetailsProps) {
         </Card>
       )}
     </div>
-  )
+  );
 }

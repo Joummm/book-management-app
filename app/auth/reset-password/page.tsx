@@ -1,77 +1,83 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { createClient } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useApp } from "@/lib/contexts/app-context"
-import { getTranslations } from "@/lib/i18n"
-import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
-import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useApp } from "@/lib/contexts/app-context";
+import { getTranslations } from "@/lib/i18n";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ResetPasswordPage() {
-  const { locale } = useApp()
-  const t = getTranslations(locale)
-  const router = useRouter()
-  const { toast } = useToast()
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isValidSession, setIsValidSession] = useState(false)
+  const { locale } = useApp();
+  const t = getTranslations(locale);
+  const router = useRouter();
+  const { toast } = useToast();
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isValidSession, setIsValidSession] = useState(false);
 
   useEffect(() => {
     // Check if user has valid recovery session
     const checkSession = async () => {
-      const supabase = createClient()
+      const supabase = createClient();
       const {
         data: { session },
-      } = await supabase.auth.getSession()
-      setIsValidSession(!!session)
-    }
-    checkSession()
-  }, [])
+      } = await supabase.auth.getSession();
+      setIsValidSession(!!session);
+    };
+    checkSession();
+  }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
     if (newPassword !== confirmPassword) {
-      setError(t.passwordsDoNotMatch || "As senhas não coincidem")
-      return
+      setError(t.passwordsDoNotMatch || "As senhas não coincidem");
+      return;
     }
 
     if (newPassword.length < 6) {
-      setError("A senha deve ter pelo menos 6 caracteres")
-      return
+      setError("A senha deve ter pelo menos 6 caracteres");
+      return;
     }
 
-    const supabase = createClient()
-    setIsLoading(true)
+    const supabase = createClient();
+    setIsLoading(true);
 
     try {
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
-      })
+      });
 
-      if (error) throw error
+      if (error) throw error;
 
       toast({
         title: t.success || "Sucesso",
         description: "Senha redefinida com sucesso",
-      })
+      });
 
-      router.push("/auth/login")
+      router.push("/auth/login");
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Ocorreu um erro")
+      setError(error instanceof Error ? error.message : "Ocorreu um erro");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   if (!isValidSession) {
     return (
@@ -81,18 +87,22 @@ export default function ResetPasswordPage() {
             <CardHeader>
               <CardTitle className="text-2xl">Link Inválido</CardTitle>
               <CardDescription>
-                Este link de redefinição de senha expirou ou é inválido. Por favor, solicite um novo link.
+                Este link de redefinição de senha expirou ou é inválido. Por
+                favor, solicite um novo link.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" onClick={() => router.push("/auth/forgot-password")}>
+              <Button
+                className="w-full"
+                onClick={() => router.push("/auth/forgot-password")}
+              >
                 Solicitar Novo Link
               </Button>
             </CardContent>
           </Card>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -138,5 +148,5 @@ export default function ResetPasswordPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

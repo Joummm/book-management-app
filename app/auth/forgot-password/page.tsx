@@ -1,46 +1,53 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { createClient } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useApp } from "@/lib/contexts/app-context"
-import { getTranslations } from "@/lib/i18n"
-import Link from "next/link"
-import { useState } from "react"
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useApp } from "@/lib/contexts/app-context";
+import { getTranslations } from "@/lib/i18n";
+import Link from "next/link";
+import { useState } from "react";
 
 export default function ForgotPasswordPage() {
-  const { locale } = useApp()
-  const t = getTranslations(locale)
-  const [email, setEmail] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const { locale } = useApp();
+  const t = getTranslations(locale);
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const supabase = createClient()
-    setIsLoading(true)
-    setError(null)
+    e.preventDefault();
+    const supabase = createClient();
+    setIsLoading(true);
+    setError(null);
 
     try {
       const redirectUrl =
-        process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/reset-password`
+        process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
+        `${window.location.origin}/auth/reset-password`;
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl,
-      })
-      if (error) throw error
-      setSuccess(true)
+      });
+      if (error) throw error;
+      setSuccess(true);
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   if (success) {
     return (
@@ -50,7 +57,8 @@ export default function ForgotPasswordPage() {
             <CardHeader>
               <CardTitle className="text-2xl">Email Enviado</CardTitle>
               <CardDescription>
-                Verifique seu email para obter instruções sobre como redefinir sua senha.
+                Verifique seu email para obter instruções sobre como redefinir
+                sua senha.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -61,7 +69,7 @@ export default function ForgotPasswordPage() {
           </Card>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -70,7 +78,9 @@ export default function ForgotPasswordPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">{t.forgotPassword}</CardTitle>
-            <CardDescription>Digite seu email para redefinir sua senha</CardDescription>
+            <CardDescription>
+              Digite seu email para redefinir sua senha
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleResetPassword}>
@@ -92,7 +102,10 @@ export default function ForgotPasswordPage() {
                 </Button>
               </div>
               <div className="mt-4 text-center text-sm">
-                <Link href="/auth/login" className="underline underline-offset-4">
+                <Link
+                  href="/auth/login"
+                  className="underline underline-offset-4"
+                >
                   Voltar para {t.login}
                 </Link>
               </div>
@@ -101,5 +114,5 @@ export default function ForgotPasswordPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

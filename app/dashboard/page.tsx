@@ -1,18 +1,18 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { NavHeader } from "@/components/nav-header"
-import { DashboardContent } from "@/components/dashboard-content"
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { NavHeader } from "@/components/nav-header";
+import { DashboardContent } from "@/components/dashboard-content";
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (error || !user) {
-    redirect("/auth/login")
+    redirect("/auth/login");
   }
 
   // Fetch books for statistics
@@ -20,7 +20,7 @@ export default async function DashboardPage() {
     .from("books")
     .select("*")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: false });
 
   return (
     <div className="min-h-screen bg-background">
@@ -34,5 +34,5 @@ export default async function DashboardPage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }

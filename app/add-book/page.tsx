@@ -1,18 +1,18 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { NavHeader } from "@/components/nav-header"
-import { BookForm } from "@/components/book-form"
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { NavHeader } from "@/components/nav-header";
+import { BookForm } from "@/components/book-form";
 
 export default async function AddBookPage() {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (error || !user) {
-    redirect("/auth/login")
+    redirect("/auth/login");
   }
 
   return (
@@ -27,5 +27,5 @@ export default async function AddBookPage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }

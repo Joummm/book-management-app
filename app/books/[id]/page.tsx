@@ -1,26 +1,35 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { NavHeader } from "@/components/nav-header"
-import { BookDetails } from "@/components/book-details"
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { NavHeader } from "@/components/nav-header";
+import { BookDetails } from "@/components/book-details";
 
-export default async function BookDetailsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const supabase = await createClient()
+export default async function BookDetailsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createClient();
 
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (error || !user) {
-    redirect("/auth/login")
+    redirect("/auth/login");
   }
 
   // Fetch the book
-  const { data: book } = await supabase.from("books").select("*").eq("id", id).eq("user_id", user.id).single()
+  const { data: book } = await supabase
+    .from("books")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
 
   if (!book) {
-    redirect("/books")
+    redirect("/books");
   }
 
   return (
@@ -35,5 +44,5 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
         </div>
       </footer>
     </div>
-  )
+  );
 }

@@ -1,39 +1,45 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { createClient } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useApp } from "@/lib/contexts/app-context"
-import { getTranslations } from "@/lib/i18n"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useApp } from "@/lib/contexts/app-context";
+import { getTranslations } from "@/lib/i18n";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function SignUpPage() {
-  const { locale } = useApp()
-  const t = getTranslations(locale)
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [repeatPassword, setRepeatPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
+  const { locale } = useApp();
+  const t = getTranslations(locale);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [repeatPassword, setRepeatPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const supabase = createClient()
-    setIsLoading(true)
-    setError(null)
+    e.preventDefault();
+    const supabase = createClient();
+    setIsLoading(true);
+    setError(null);
 
     if (password !== repeatPassword) {
-      setError("Passwords do not match")
-      setIsLoading(false)
-      return
+      setError("Passwords do not match");
+      setIsLoading(false);
+      return;
     }
 
     try {
@@ -41,20 +47,22 @@ export default function SignUpPage() {
         email,
         password,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
+          emailRedirectTo:
+            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
+            `${window.location.origin}/dashboard`,
           data: {
             name,
           },
         },
-      })
-      if (error) throw error
-      router.push("/auth/check-email")
+      });
+      if (error) throw error;
+      router.push("/auth/check-email");
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
@@ -116,7 +124,10 @@ export default function SignUpPage() {
               </div>
               <div className="mt-4 text-center text-sm">
                 {t.alreadyHaveAccount}{" "}
-                <Link href="/auth/login" className="underline underline-offset-4">
+                <Link
+                  href="/auth/login"
+                  className="underline underline-offset-4"
+                >
                   {t.login}
                 </Link>
               </div>
@@ -125,5 +136,5 @@ export default function SignUpPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
