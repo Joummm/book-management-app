@@ -1,0 +1,203 @@
+================================================================================
+                    GUIA DE CONFIGURACAO - BOOK MANAGEMENT APP
+================================================================================
+
+Este guia explica como executar o projeto localmente e como fazer o deploy
+no Netlify.
+
+--------------------------------------------------------------------------------
+PARTE 1: EXECUTAR LOCALMENTE
+--------------------------------------------------------------------------------
+
+REQUISITOS:
+- Node.js 18.17 ou superior (recomendado: Node.js 20+)
+- npm, yarn, pnpm ou bun
+- Conta no Supabase (gratuita)
+
+PASSO 1: Clonar/Descarregar o Projeto
+-------------------------------------
+Se descarregou o ZIP do v0:
+1. Extraia o ficheiro ZIP para uma pasta
+2. Abra o terminal nessa pasta
+
+PASSO 2: Instalar Dependencias
+------------------------------
+Execute um dos seguintes comandos:
+
+  npm install
+  # ou
+  yarn install
+  # ou
+  pnpm install
+  # ou
+  bun install
+
+PASSO 3: Configurar o Supabase
+------------------------------
+1. Aceda a https://supabase.com e crie uma conta (gratuita)
+2. Crie um novo projeto
+3. Va a "Project Settings" > "API" e copie:
+   - Project URL
+   - anon public key
+
+4. Va ao "SQL Editor" no Supabase e execute os seguintes scripts
+   (encontram-se na pasta /scripts do projeto):
+
+   a) Execute o conteudo de: scripts/001_create_books_table.sql
+   b) Execute o conteudo de: scripts/002_create_profiles_table.sql
+   c) Execute o conteudo de: scripts/003_create_trigger_for_profiles.sql
+
+PASSO 4: Criar Ficheiro de Variaveis de Ambiente
+------------------------------------------------
+Crie um ficheiro chamado ".env.local" na raiz do projeto com o seguinte conteudo:
+
+  NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key-aqui
+
+Substitua pelos valores copiados do Supabase.
+
+PASSO 5: Executar o Projeto
+---------------------------
+Execute um dos seguintes comandos:
+
+  npm run dev
+  # ou
+  yarn dev
+  # ou
+  pnpm dev
+  # ou
+  bun dev
+
+O projeto estara disponivel em: http://localhost:3000
+
+--------------------------------------------------------------------------------
+PARTE 2: DEPLOY NO NETLIFY
+--------------------------------------------------------------------------------
+
+OPCAO A: Deploy via GitHub (Recomendado)
+----------------------------------------
+
+1. CRIAR REPOSITORIO NO GITHUB:
+   - Va a https://github.com e crie um novo repositorio
+   - Faca push do codigo para o repositorio:
+   
+     git init
+     git add .
+     git commit -m "Initial commit"
+     git branch -M main
+     git remote add origin https://github.com/seu-usuario/seu-repo.git
+     git push -u origin main
+
+2. CONECTAR AO NETLIFY:
+   - Va a https://netlify.com e crie uma conta (gratuita)
+   - Clique em "Add new site" > "Import an existing project"
+   - Selecione "GitHub" e autorize o acesso
+   - Escolha o repositorio do projeto
+
+3. CONFIGURAR BUILD:
+   - Build command: npm run build
+   - Publish directory: .next
+   - Clique em "Show advanced" e adicione as variaveis de ambiente:
+     
+     NEXT_PUBLIC_SUPABASE_URL = (seu URL do Supabase)
+     NEXT_PUBLIC_SUPABASE_ANON_KEY = (sua chave anonima)
+
+4. CONFIGURAR NETLIFY PARA NEXT.JS:
+   - Crie um ficheiro "netlify.toml" na raiz do projeto com:
+
+     [build]
+       command = "npm run build"
+       publish = ".next"
+
+     [[plugins]]
+       package = "@netlify/plugin-nextjs"
+
+   - Instale o plugin do Next.js:
+     npm install -D @netlify/plugin-nextjs
+
+5. FAZER DEPLOY:
+   - Clique em "Deploy site"
+   - Aguarde o build completar
+   - O site estara disponivel num URL tipo: seu-site.netlify.app
+
+OPCAO B: Deploy via Vercel (Alternativa Mais Simples)
+-----------------------------------------------------
+Como este e um projeto Next.js, a Vercel oferece a melhor experiencia:
+
+1. Va a https://vercel.com
+2. Clique em "Add New" > "Project"
+3. Importe o repositorio do GitHub
+4. Adicione as variaveis de ambiente
+5. Clique em "Deploy"
+
+O deploy e automatico e otimizado para Next.js.
+
+--------------------------------------------------------------------------------
+PARTE 3: CONFIGURAR AUTENTICACAO NO SUPABASE
+--------------------------------------------------------------------------------
+
+Para que o registo e login funcionem corretamente:
+
+1. No Supabase, va a "Authentication" > "URL Configuration"
+
+2. Configure o "Site URL":
+   - Para desenvolvimento local: http://localhost:3000
+   - Para producao: https://seu-site.netlify.app (ou seu dominio)
+
+3. Configure os "Redirect URLs" (adicione todos):
+   - http://localhost:3000/**
+   - https://seu-site.netlify.app/**
+
+4. (Opcional) Para desativar a confirmacao de email durante testes:
+   - Va a "Authentication" > "Providers" > "Email"
+   - Desative "Confirm email"
+
+--------------------------------------------------------------------------------
+ESTRUTURA DO PROJETO
+--------------------------------------------------------------------------------
+
+/app                    - Paginas da aplicacao (Next.js App Router)
+  /auth                 - Paginas de autenticacao (login, registo, etc.)
+  /books                - Lista de livros e detalhes
+  /dashboard            - Dashboard com estatisticas
+  /add-book             - Adicionar novo livro
+  /edit-book            - Editar livro existente
+
+/components             - Componentes React reutilizaveis
+/lib                    - Utilitarios, tipos e configuracoes
+  /supabase             - Cliente Supabase (client e server)
+  /contexts             - Contextos React (tema, idioma)
+  /i18n.ts              - Traducoes (PT, EN, ES, FR)
+  /types.ts             - Tipos TypeScript
+
+/scripts                - Scripts SQL para criar as tabelas
+
+--------------------------------------------------------------------------------
+RESOLUCAO DE PROBLEMAS
+--------------------------------------------------------------------------------
+
+ERRO: "Failed to fetch" no login
+- Verifique se as variaveis de ambiente estao corretas
+- Verifique se o projeto Supabase esta ativo (nao pausado)
+- Confirme que os scripts SQL foram executados
+
+ERRO: Tabelas nao existem
+- Execute os scripts SQL na ordem correta (001, 002, 003)
+
+ERRO: Autenticacao nao redireciona
+- Configure os Redirect URLs no Supabase
+- Verifique o Site URL no Supabase
+
+ERRO: RLS Policy violation
+- Certifique-se de que esta autenticado antes de aceder aos livros
+- Verifique se as policies RLS foram criadas corretamente
+
+--------------------------------------------------------------------------------
+SUPORTE
+--------------------------------------------------------------------------------
+
+Documentacao Supabase: https://supabase.com/docs
+Documentacao Next.js: https://nextjs.org/docs
+Documentacao Netlify: https://docs.netlify.com
+
+================================================================================
