@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { NavHeader } from "@/components/nav-header";
-import { BooksListContent } from "@/components/books-list-content";
+import { NavHeader } from "@/components/NavHeader";
+import { BooksListContent } from "@/components/BooksListContent";
 
 export default async function BooksPage() {
   const supabase = await createClient();

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { NavHeader } from "@/components/nav-header";
+import { NavHeader } from "@/components/NavHeader";
 import { BookForm } from "@/components/book-form";
 
 export default async function EditBookPage({
