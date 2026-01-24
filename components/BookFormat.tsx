@@ -53,6 +53,8 @@ import {
   File,
   Heart,
   ThumbsUp,
+  PlayCircle,
+  StopCircle,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -184,6 +186,26 @@ export function BookForm({ book }: BookFormProps) {
   useEffect(() => {
     validateDates();
   }, [startReadingDate, finishReadingDate, validateDates]);
+
+  // Handle start reading button
+  const handleStartReading = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setStartReadingDate(today);
+    toast({
+      title: t.readingStarted,
+      description: t.readingStartedDesc,
+    });
+  };
+
+  // Handle finish reading button
+  const handleFinishReading = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setFinishReadingDate(today);
+    toast({
+      title: t.readingFinished,
+      description: t.readingFinishedDesc,
+    });
+  };
 
   // Calculate reading progress
   const calculateReadingProgress = () => {
@@ -469,19 +491,47 @@ export function BookForm({ book }: BookFormProps) {
           </div>
         </div>
 
-        {/* Reading Progress */}
-        {(startReadingDate || finishReadingDate) && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                {t.readingProgress}
-                <span className="text-muted-foreground text-xs">
-                  ({t.optional})
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+        {/* Reading Status Controls */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <PlayCircle className="h-4 w-4" />
+              {t.readingStatus}
+              <span className="text-muted-foreground text-xs">
+                ({t.optional})
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Status Buttons */}
+            <div className="space-y-3">
+              {!startReadingDate && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start gap-2 cursor-pointer"
+                  onClick={handleStartReading}
+                >
+                  <PlayCircle className="h-4 w-4 text-success" />
+                  {t.startReadingToday}
+                </Button>
+              )}
+
+              {startReadingDate && !finishReadingDate && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start gap-2 cursor-pointer"
+                  onClick={handleFinishReading}
+                >
+                  <StopCircle className="h-4 w-4 text-primary" />
+                  {t.finishReadingToday}
+                </Button>
+              )}
+            </div>
+
+            {/* Reading Progress */}
+            {(startReadingDate || finishReadingDate) && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>{t.progress}</span>
@@ -491,28 +541,30 @@ export function BookForm({ book }: BookFormProps) {
                 </div>
                 <Progress value={calculateReadingProgress()} />
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="space-y-1">
-                  <Label className="text-xs">{t.startDate}</Label>
-                  <Input
-                    type="date"
-                    value={startReadingDate}
-                    onChange={(e) => setStartReadingDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">{t.finishDate}</Label>
-                  <Input
-                    type="date"
-                    value={finishReadingDate}
-                    onChange={(e) => setFinishReadingDate(e.target.value)}
-                    disabled={!startReadingDate}
-                  />
-                </div>
+            )}
+
+            {/* Reading Dates */}
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="space-y-1">
+                <Label className="text-xs">{t.startDate}</Label>
+                <Input
+                  type="date"
+                  value={startReadingDate}
+                  onChange={(e) => setStartReadingDate(e.target.value)}
+                />
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <div className="space-y-1">
+                <Label className="text-xs">{t.finishDate}</Label>
+                <Input
+                  type="date"
+                  value={finishReadingDate}
+                  onChange={(e) => setFinishReadingDate(e.target.value)}
+                  disabled={!startReadingDate}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Right Column - Basic Info */}
@@ -1108,6 +1160,14 @@ export function BookForm({ book }: BookFormProps) {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">{t.genres}:</span>
               <span className="font-medium">{selectedGenres.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">{t.status}:</span>
+              <span className="font-medium">
+                {!startReadingDate && t.notStarted}
+                {startReadingDate && !finishReadingDate && t.reading}
+                {finishReadingDate && t.ended}
+              </span>
             </div>
           </CardContent>
         </Card>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useApp } from "@/lib/contexts/app-context";
 import { getTranslations } from "@/lib/i18n";
 import type { Book } from "@/lib/types";
@@ -27,11 +28,15 @@ import {
   Hash,
   TrendingUp,
   ArrowLeft,
+  PlayCircle,
+  StopCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface BookDetailsProps {
   book: Book;
@@ -40,12 +45,15 @@ interface BookDetailsProps {
 export function BookDetails({ book }: BookDetailsProps) {
   const { locale } = useApp();
   const t = getTranslations(locale);
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentBook, setCurrentBook] = useState(book);
 
   // Calcular dias de leitura
   const calculateReadingDays = () => {
-    if (book.start_reading_date && book.finish_reading_date) {
-      const start = new Date(book.start_reading_date);
-      const finish = new Date(book.finish_reading_date);
+    if (currentBook.start_reading_date && currentBook.finish_reading_date) {
+      const start = new Date(currentBook.start_reading_date);
+      const finish = new Date(currentBook.finish_reading_date);
       const diffTime = Math.abs(finish.getTime() - start.getTime());
       return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     }
@@ -56,23 +64,119 @@ export function BookDetails({ book }: BookDetailsProps) {
 
   // Status de leitura
   const getReadingStatus = () => {
-    if (book.finish_reading_date)
+    if (currentBook.finish_reading_date)
       return { text: t.ended, color: "bg-success", icon: CheckCircle };
-    if (book.start_reading_date)
+    if (currentBook.start_reading_date)
       return { text: t.reading, color: "bg-warning", icon: Clock };
     return { text: t.notStarted, color: "bg-muted", icon: BookOpen };
   };
 
   const readingStatus = getReadingStatus();
 
-  // Calcular progresso (se estiver a ler)
+  // Calcular progresso de forma determinística baseada nas datas
   const calculateProgress = () => {
-    if (!book.start_reading_date || book.finish_reading_date) return 100;
-    // Simulação - pode ser substituído por lógica real
-    return Math.floor(Math.random() * 30) + 20;
+    if (!currentBook.start_reading_date) return 0;
+    if (currentBook.finish_reading_date) return 100;
+    return 50;
   };
 
   const progress = calculateProgress();
+
+  // Função para atualizar as datas de leitura
+  const updateReadingDate = async (type: "start" | "finish") => {
+    setIsLoading(true);
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      toast({
+        title: t.error,
+        description: t.needToBeLoggedIn,
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const updateData: any = {};
+
+    if (type === "start") {
+      updateData.start_reading_date = today;
+    } else if (type === "finish") {
+      updateData.finish_reading_date = today;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("books")
+        .update(updateData)
+        .eq("id", currentBook.id)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      // Atualizar o estado local
+      const updatedBook = {
+        ...currentBook,
+        ...updateData,
+      };
+      setCurrentBook(updatedBook);
+
+      toast({
+        title: type === "start" ? t.readingStarted : t.readingFinished,
+        description:
+          type === "start" ? t.readingStartedDesc : t.readingFinishedDesc,
+      });
+
+      // Recarregar a página para refletir as mudanças
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: t.error,
+        description: error instanceof Error ? error.message : t.anErrorOccurred,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Ações rápidas condicionais
+  const getQuickActions = () => {
+    if (!currentBook.start_reading_date) {
+      return (
+        <Button
+          variant="outline"
+          className="gap-2 cursor-pointer"
+          onClick={() => updateReadingDate("start")}
+          disabled={isLoading}
+        >
+          <PlayCircle className="h-4 w-4 text-success" />
+          {t.startReadingToday}
+        </Button>
+      );
+    } else if (
+      currentBook.start_reading_date &&
+      !currentBook.finish_reading_date
+    ) {
+      return (
+        <Button
+          variant="outline"
+          className="gap-2 cursor-pointer"
+          onClick={() => updateReadingDate("finish")}
+          disabled={isLoading}
+        >
+          <StopCircle className="h-4 w-4 text-primary" />
+          {t.finishReadingToday}
+        </Button>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -84,7 +188,7 @@ export function BookDetails({ book }: BookDetailsProps) {
             {t.backToBooks}
           </Button>
         </Link>
-        <Link href={`/edit-book/${book.id}`}>
+        <Link href={`/edit-book/${currentBook.id}`}>
           <Button className="gap-2 cursor-pointer">
             <Edit className="h-4 w-4" />
             {t.edit}
@@ -99,10 +203,10 @@ export function BookDetails({ book }: BookDetailsProps) {
           {/* Capa do livro */}
           <div className="shrink-0">
             <div className="relative aspect-3/4 w-64 rounded-xl overflow-hidden shadow-2xl border-4 border-background">
-              {book.cover_image ? (
+              {currentBook.cover_image ? (
                 <img
-                  src={book.cover_image || "/placeholder.svg"}
-                  alt={book.title}
+                  src={currentBook.cover_image || "/placeholder.svg"}
+                  alt={currentBook.title}
                   className="object-cover w-full h-full"
                 />
               ) : (
@@ -126,25 +230,27 @@ export function BookDetails({ book }: BookDetailsProps) {
           <div className="flex-1 space-y-6">
             <div>
               <Badge variant="outline" className="mb-3">
-                {book.format === "physical" ? t.physical : t.digital}
+                {currentBook.format === "physical" ? t.physical : t.digital}
               </Badge>
               <h1 className="text-4xl font-bold tracking-tight mb-2">
-                {book.title}
+                {currentBook.title}
               </h1>
-              <p className="text-2xl text-muted-foreground">{book.author}</p>
+              <p className="text-2xl text-muted-foreground">
+                {currentBook.author}
+              </p>
             </div>
 
             {/* Rating */}
-            {book.rating && (
+            {currentBook.rating && (
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                   {[...Array(5)].map((_, i) => (
                     <Star
                       key={i}
                       className={`h-6 w-6 ${
-                        i < Math.floor(book.rating!)
+                        i < Math.floor(currentBook.rating!)
                           ? "fill-primary text-primary"
-                          : i < book.rating!
+                          : i < currentBook.rating!
                             ? "fill-primary/50 text-primary/50"
                             : "fill-muted text-muted"
                       }`}
@@ -152,32 +258,32 @@ export function BookDetails({ book }: BookDetailsProps) {
                   ))}
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold">{book.rating}</span>
+                  <span className="text-3xl font-bold">
+                    {currentBook.rating}
+                  </span>
                   <span className="text-muted-foreground">/5</span>
                 </div>
               </div>
             )}
 
             {/* Progresso de leitura */}
-            {(book.start_reading_date || progress < 100) && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">{t.readingProgress}</span>
-                  <span className="text-muted-foreground">{progress}%</span>
+            {currentBook.start_reading_date &&
+              !currentBook.finish_reading_date && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium">{t.readingProgress}</span>
+                    <span className="text-muted-foreground">{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
                 </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-            )}
+              )}
 
             {/* Ações rápidas */}
             <div className="flex flex-wrap gap-3 pt-4">
+              {getQuickActions()}
               <Button variant="outline" className="gap-2">
                 <Heart className="h-4 w-4" />
                 {t.addToFavorites}
-              </Button>
-              <Button variant="outline" className="gap-2">
-                <BookMarked className="h-4 w-4" />
-                {t.markAsRead}
               </Button>
               <Button variant="outline" className="gap-2">
                 <Sparkles className="h-4 w-4" />
@@ -222,32 +328,34 @@ export function BookDetails({ book }: BookDetailsProps) {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  {book.publisher && (
+                  {currentBook.publisher && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Building className="h-4 w-4" />
                         {t.publisher}
                       </div>
-                      <span className="font-medium">{book.publisher}</span>
+                      <span className="font-medium">
+                        {currentBook.publisher}
+                      </span>
                     </div>
                   )}
-                  {book.pages && (
+                  {currentBook.pages && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <FileText className="h-4 w-4" />
                         {t.pages}
                       </div>
-                      <span className="font-medium">{book.pages}</span>
+                      <span className="font-medium">{currentBook.pages}</span>
                     </div>
                   )}
-                  {book.release_date && (
+                  {currentBook.release_date && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar className="h-4 w-4" />
                         {t.releaseDate}
                       </div>
                       <span className="font-medium">
-                        {new Date(book.release_date).toLocaleDateString(
+                        {new Date(currentBook.release_date).toLocaleDateString(
                           locale,
                           {
                             year: "numeric",
@@ -265,7 +373,7 @@ export function BookDetails({ book }: BookDetailsProps) {
                     {t.genres}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {book.genres?.map((genre) => (
+                    {currentBook.genres?.map((genre) => (
                       <Badge key={genre} variant="secondary" className="gap-1">
                         <Hash className="h-3 w-3" />
                         {t[genre as keyof typeof t] || genre}
@@ -285,7 +393,7 @@ export function BookDetails({ book }: BookDetailsProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {book.start_reading_date && (
+                {currentBook.start_reading_date && (
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-muted-foreground">
                       {t.startDate}
@@ -293,20 +401,19 @@ export function BookDetails({ book }: BookDetailsProps) {
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-success" />
                       <span className="font-medium">
-                        {new Date(book.start_reading_date).toLocaleDateString(
-                          locale,
-                          {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          },
-                        )}
+                        {new Date(
+                          currentBook.start_reading_date,
+                        ).toLocaleDateString(locale, {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
                       </span>
                     </div>
                   </div>
                 )}
-                {book.finish_reading_date && (
+                {currentBook.finish_reading_date && (
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-muted-foreground">
                       {t.finishDate}
@@ -314,15 +421,14 @@ export function BookDetails({ book }: BookDetailsProps) {
                     <div className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-success" />
                       <span className="font-medium">
-                        {new Date(book.finish_reading_date).toLocaleDateString(
-                          locale,
-                          {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          },
-                        )}
+                        {new Date(
+                          currentBook.finish_reading_date,
+                        ).toLocaleDateString(locale, {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
                       </span>
                     </div>
                   </div>
@@ -339,7 +445,7 @@ export function BookDetails({ book }: BookDetailsProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {book.would_read_again && (
+                {currentBook.would_read_again && (
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-muted-foreground">
                       {t.wouldReadAgain}
@@ -347,36 +453,36 @@ export function BookDetails({ book }: BookDetailsProps) {
                     <div className="flex items-center gap-2">
                       <Heart
                         className={`h-4 w-4 ${
-                          book.would_read_again === "yes"
+                          currentBook.would_read_again === "yes"
                             ? "text-success"
-                            : book.would_read_again === "no"
+                            : currentBook.would_read_again === "no"
                               ? "text-destructive"
                               : "text-warning"
                         }`}
                       />
                       <span className="font-medium capitalize">
-                        {t[book.would_read_again as keyof typeof t]}
+                        {t[currentBook.would_read_again as keyof typeof t]}
                       </span>
                     </div>
                   </div>
                 )}
-                {book.would_recommend !== null &&
-                  book.would_recommend !== undefined && (
+                {currentBook.would_recommend !== null &&
+                  currentBook.would_recommend !== undefined && (
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-muted-foreground">
                         {t.wouldRecommend}
                       </p>
                       <div className="flex items-center gap-2">
                         <ThumbsUp
-                          className={`h-4 w-4 ${book.would_recommend ? "text-success" : "text-destructive"}`}
+                          className={`h-4 w-4 ${currentBook.would_recommend ? "text-success" : "text-destructive"}`}
                         />
                         <span className="font-medium">
-                          {book.would_recommend ? t.yes : t.no}
+                          {currentBook.would_recommend ? t.yes : t.no}
                         </span>
                       </div>
                     </div>
                   )}
-                {book.rating && (
+                {currentBook.rating && (
                   <div className="pt-4 border-t">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -385,7 +491,7 @@ export function BookDetails({ book }: BookDetailsProps) {
                       </div>
                       <div className="flex items-center gap-1">
                         <span className="text-2xl font-bold">
-                          {book.rating}
+                          {currentBook.rating}
                         </span>
                         <span className="text-muted-foreground">/5</span>
                       </div>
@@ -407,11 +513,11 @@ export function BookDetails({ book }: BookDetailsProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {book.review ? (
+              {currentBook.review ? (
                 <div className="prose prose-lg dark:prose-invert max-w-none">
                   <div className="bg-muted/30 rounded-lg p-6 border">
                     <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {book.review}
+                      {currentBook.review}
                     </p>
                   </div>
                 </div>
@@ -422,7 +528,7 @@ export function BookDetails({ book }: BookDetailsProps) {
                   <p className="text-muted-foreground mb-6">
                     {t.addReviewPrompt}
                   </p>
-                  <Link href={`/edit-book/${book.id}`}>
+                  <Link href={`/edit-book/${currentBook.id}`}>
                     <Button className="gap-2 cursor-pointer">
                       <Edit className="h-4 w-4" />
                       {t.addReview}
@@ -441,13 +547,13 @@ export function BookDetails({ book }: BookDetailsProps) {
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
                 {t.characters}{" "}
-                {book.characters && `(${book.characters.length})`}
+                {currentBook.characters && `(${currentBook.characters.length})`}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {book.characters && book.characters.length > 0 ? (
+              {currentBook.characters && currentBook.characters.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {book.characters.map((character, index) => (
+                  {currentBook.characters.map((character, index) => (
                     <div
                       key={index}
                       className="border rounded-lg p-4 hover:border-primary transition-colors"
@@ -473,7 +579,7 @@ export function BookDetails({ book }: BookDetailsProps) {
                   <p className="text-muted-foreground mb-6">
                     {t.addCharactersPrompt}
                   </p>
-                  <Link href={`/edit-book/${book.id}`}>
+                  <Link href={`/edit-book/${currentBook.id}`}>
                     <Button className="gap-2 cursor-pointer">
                       <Edit className="h-4 w-4" />
                       {t.addCharacters}
@@ -491,13 +597,14 @@ export function BookDetails({ book }: BookDetailsProps) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Quote className="h-5 w-5" />
-                {t.memorableQuotes} {book.quotes && `(${book.quotes.length})`}
+                {t.memorableQuotes}{" "}
+                {currentBook.quotes && `(${currentBook.quotes.length})`}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {book.quotes && book.quotes.length > 0 ? (
+              {currentBook.quotes && currentBook.quotes.length > 0 ? (
                 <div className="space-y-6">
-                  {book.quotes.map((quote, index) => (
+                  {currentBook.quotes.map((quote, index) => (
                     <div key={index} className="relative group">
                       <div className="absolute -left-4 top-0 h-full w-1 bg-primary/20 rounded-full group-hover:bg-primary/40 transition-colors"></div>
                       <blockquote className="border-l-4 border-primary pl-6 py-4 bg-linear-to-r from-primary/5 to-transparent rounded-r-lg">
@@ -525,7 +632,7 @@ export function BookDetails({ book }: BookDetailsProps) {
                   <p className="text-muted-foreground mb-6">
                     {t.addQuotesPrompt}
                   </p>
-                  <Link href={`/edit-book/${book.id}`}>
+                  <Link href={`/edit-book/${currentBook.id}`}>
                     <Button className="gap-2 cursor-pointer">
                       <Edit className="h-4 w-4" />
                       {t.addQuotes}
@@ -556,7 +663,7 @@ export function BookDetails({ book }: BookDetailsProps) {
           </CardContent>
         </Card>
 
-        {book.rating && (
+        {currentBook.rating && (
           <Card className="bg-success/5">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -565,7 +672,9 @@ export function BookDetails({ book }: BookDetailsProps) {
                     {t.rating}
                   </p>
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-xl font-bold">{book.rating}</span>
+                    <span className="text-xl font-bold">
+                      {currentBook.rating}
+                    </span>
                     <span className="text-muted-foreground">/5</span>
                   </div>
                 </div>
@@ -577,7 +686,7 @@ export function BookDetails({ book }: BookDetailsProps) {
           </Card>
         )}
 
-        {book.pages && (
+        {currentBook.pages && (
           <Card className="bg-warning/5">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -585,7 +694,7 @@ export function BookDetails({ book }: BookDetailsProps) {
                   <p className="text-sm font-medium text-muted-foreground">
                     {t.pages}
                   </p>
-                  <p className="text-xl font-bold mt-1">{book.pages}</p>
+                  <p className="text-xl font-bold mt-1">{currentBook.pages}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center">
                   <FileText className="h-5 w-5 text-warning" />

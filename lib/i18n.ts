@@ -262,6 +262,15 @@ export const translations = {
     addQuotesPrompt: "Adicione frases marcantes para este livro.",
     addQuotes: "Adicionar Frases",
     status: "Estado",
+
+    readingStarted: "Leitura Iniciada",
+    readingStartedDesc: "A data de início da leitura foi definida para hoje",
+    readingFinished: "Leitura Concluída",
+    readingFinishedDesc:
+      "A data de conclusão da leitura foi definida para hoje",
+    startReadingToday: "Iniciar Leitura Hoje",
+    finishReadingToday: "Terminar Leitura Hoje",
+    readingStatus: "Status de Leitura",
   },
   en: {
     // Navigation
@@ -523,6 +532,14 @@ export const translations = {
     addQuotesPrompt: "Add memorable quotes for this book.",
     addQuotes: "Add Quotes",
     status: "Status",
+
+    readingStarted: "Leitura Iniciada",
+    readingStartedDesc: "The start date for the reading was set for today",
+    readingFinished: "Completed Reading",
+    readingFinishedDesc: "The reading completion date was set for today",
+    startReadingToday: "Starting Reading Today",
+    finishReadingToday: "Finish Reading Today",
+    readingStatus: "Reading Status",
   },
   es: {
     // Navigation
@@ -785,6 +802,15 @@ export const translations = {
     addQuotesPrompt: "Añade frases memorables para este libro.",
     addQuotes: "Añadir Frases",
     status: "Estado",
+
+    readingStarted: "Lectura Iniciada",
+    readingStartedDesc: "La fecha de inicio de la lectura fue fijada para hoy",
+    readingFinished: "Lectura Completada",
+    readingFinishedDesc:
+      "La fecha de finalización de la lectura se fijó para hoy",
+    startReadingToday: "Empezando a Leer Hoy",
+    finishReadingToday: "Terminar de Leer Hoy",
+    readingStatus: "Estado de Lectura",
   },
   fr: {
     // Navigation
@@ -1047,6 +1073,16 @@ export const translations = {
     addQuotesPrompt: "Ajoutez des citations mémorables pour ce livre.",
     addQuotes: "Ajouter Citations",
     status: "Statut",
+
+    readingStarted: "Lecture Commencée",
+    readingStartedDesc:
+      "La date de début de la lecture a été fixée à aujourd'hui",
+    readingFinished: "Lecture Terminée",
+    readingFinishedDesc:
+      "La date limite pour terminer la lecture a été fixée à aujourd'hui",
+    startReadingToday: "Commencer la Lecture Aujourd'hui",
+    finishReadingToday: "Terminez la Lecture Aujourd'hui",
+    readingStatus: "Statut de Lecture",
   },
 };
 
