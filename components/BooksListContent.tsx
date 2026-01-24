@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BookCard } from "@/components/book-card";
+import { BookCard } from "@/components/BookCard";
 import {
   Search,
   Grid2x2,
