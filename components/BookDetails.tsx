@@ -6,14 +6,14 @@ import type { Book } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  BookOpen, 
-  Edit, 
-  FileText, 
-  Star, 
-  Users, 
-  Calendar, 
-  Clock, 
+import {
+  BookOpen,
+  Edit,
+  FileText,
+  Star,
+  Users,
+  Calendar,
+  Clock,
   CheckCircle,
   BarChart3,
   Heart,
@@ -26,7 +26,7 @@ import {
   Building,
   Hash,
   TrendingUp,
-  ArrowLeft
+  ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
@@ -56,8 +56,10 @@ export function BookDetails({ book }: BookDetailsProps) {
 
   // Status de leitura
   const getReadingStatus = () => {
-    if (book.finish_reading_date) return { text: t.ended, color: "bg-success", icon: CheckCircle };
-    if (book.start_reading_date) return { text: t.reading, color: "bg-warning", icon: Clock };
+    if (book.finish_reading_date)
+      return { text: t.ended, color: "bg-success", icon: CheckCircle };
+    if (book.start_reading_date)
+      return { text: t.reading, color: "bg-warning", icon: Clock };
     return { text: t.notStarted, color: "bg-muted", icon: BookOpen };
   };
 
@@ -110,7 +112,9 @@ export function BookDetails({ book }: BookDetailsProps) {
               )}
               {/* Badge de status */}
               <div className="absolute top-4 right-4">
-                <Badge className={`${readingStatus.color} text-white gap-1 px-3 py-1`}>
+                <Badge
+                  className={`${readingStatus.color} text-white gap-1 px-3 py-1`}
+                >
                   <readingStatus.icon className="h-3 w-3" />
                   {readingStatus.text}
                 </Badge>
@@ -124,7 +128,9 @@ export function BookDetails({ book }: BookDetailsProps) {
               <Badge variant="outline" className="mb-3">
                 {book.format === "physical" ? t.physical : t.digital}
               </Badge>
-              <h1 className="text-4xl font-bold tracking-tight mb-2">{book.title}</h1>
+              <h1 className="text-4xl font-bold tracking-tight mb-2">
+                {book.title}
+              </h1>
               <p className="text-2xl text-muted-foreground">{book.author}</p>
             </div>
 
@@ -139,8 +145,8 @@ export function BookDetails({ book }: BookDetailsProps) {
                         i < Math.floor(book.rating!)
                           ? "fill-primary text-primary"
                           : i < book.rating!
-                          ? "fill-primary/50 text-primary/50"
-                          : "fill-muted text-muted"
+                            ? "fill-primary/50 text-primary/50"
+                            : "fill-muted text-muted"
                       }`}
                     />
                   ))}
@@ -241,11 +247,14 @@ export function BookDetails({ book }: BookDetailsProps) {
                         {t.releaseDate}
                       </div>
                       <span className="font-medium">
-                        {new Date(book.release_date).toLocaleDateString(locale, {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                        {new Date(book.release_date).toLocaleDateString(
+                          locale,
+                          {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          },
+                        )}
                       </span>
                     </div>
                   )}
@@ -284,12 +293,15 @@ export function BookDetails({ book }: BookDetailsProps) {
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-success" />
                       <span className="font-medium">
-                        {new Date(book.start_reading_date).toLocaleDateString(locale, {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                        {new Date(book.start_reading_date).toLocaleDateString(
+                          locale,
+                          {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          },
+                        )}
                       </span>
                     </div>
                   </div>
@@ -302,12 +314,15 @@ export function BookDetails({ book }: BookDetailsProps) {
                     <div className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-success" />
                       <span className="font-medium">
-                        {new Date(book.finish_reading_date).toLocaleDateString(locale, {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                        {new Date(book.finish_reading_date).toLocaleDateString(
+                          locale,
+                          {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          },
+                        )}
                       </span>
                     </div>
                   </div>
@@ -330,30 +345,37 @@ export function BookDetails({ book }: BookDetailsProps) {
                       {t.wouldReadAgain}
                     </p>
                     <div className="flex items-center gap-2">
-                      <Heart className={`h-4 w-4 ${
-                        book.would_read_again === 'yes' ? 'text-success' :
-                        book.would_read_again === 'no' ? 'text-destructive' :
-                        'text-warning'
-                      }`} />
+                      <Heart
+                        className={`h-4 w-4 ${
+                          book.would_read_again === "yes"
+                            ? "text-success"
+                            : book.would_read_again === "no"
+                              ? "text-destructive"
+                              : "text-warning"
+                        }`}
+                      />
                       <span className="font-medium capitalize">
                         {t[book.would_read_again as keyof typeof t]}
                       </span>
                     </div>
                   </div>
                 )}
-                {book.would_recommend !== null && book.would_recommend !== undefined && (
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {t.wouldRecommend}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <ThumbsUp className={`h-4 w-4 ${book.would_recommend ? 'text-success' : 'text-destructive'}`} />
-                      <span className="font-medium">
-                        {book.would_recommend ? t.yes : t.no}
-                      </span>
+                {book.would_recommend !== null &&
+                  book.would_recommend !== undefined && (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {t.wouldRecommend}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <ThumbsUp
+                          className={`h-4 w-4 ${book.would_recommend ? "text-success" : "text-destructive"}`}
+                        />
+                        <span className="font-medium">
+                          {book.would_recommend ? t.yes : t.no}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
                 {book.rating && (
                   <div className="pt-4 border-t">
                     <div className="flex items-center justify-between">
@@ -362,7 +384,9 @@ export function BookDetails({ book }: BookDetailsProps) {
                         {t.yourRating}
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-2xl font-bold">{book.rating}</span>
+                        <span className="text-2xl font-bold">
+                          {book.rating}
+                        </span>
                         <span className="text-muted-foreground">/5</span>
                       </div>
                     </div>
@@ -416,7 +440,8 @@ export function BookDetails({ book }: BookDetailsProps) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                {t.characters} {book.characters && `(${book.characters.length})`}
+                {t.characters}{" "}
+                {book.characters && `(${book.characters.length})`}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -473,10 +498,7 @@ export function BookDetails({ book }: BookDetailsProps) {
               {book.quotes && book.quotes.length > 0 ? (
                 <div className="space-y-6">
                   {book.quotes.map((quote, index) => (
-                    <div
-                      key={index}
-                      className="relative group"
-                    >
+                    <div key={index} className="relative group">
                       <div className="absolute -left-4 top-0 h-full w-1 bg-primary/20 rounded-full group-hover:bg-primary/40 transition-colors"></div>
                       <blockquote className="border-l-4 border-primary pl-6 py-4 bg-linear-to-r from-primary/5 to-transparent rounded-r-lg">
                         <p className="text-lg italic text-foreground leading-relaxed">
@@ -522,7 +544,9 @@ export function BookDetails({ book }: BookDetailsProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{t.status}</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {t.status}
+                </p>
                 <p className="text-xl font-bold mt-1">{readingStatus.text}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -537,7 +561,9 @@ export function BookDetails({ book }: BookDetailsProps) {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t.rating}</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {t.rating}
+                  </p>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-bold">{book.rating}</span>
                     <span className="text-muted-foreground">/5</span>
@@ -556,7 +582,9 @@ export function BookDetails({ book }: BookDetailsProps) {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t.pages}</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {t.pages}
+                  </p>
                   <p className="text-xl font-bold mt-1">{book.pages}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center">
