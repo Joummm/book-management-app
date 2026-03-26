@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useApp } from "@/lib/contexts/app-context";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, Locale } from "@/lib/i18n";
 import type { Book } from "@/lib/types";
 import {
   BarChart,
@@ -38,7 +38,7 @@ interface DashboardContentProps {
 
 export function DashboardContent({ books }: DashboardContentProps) {
   const { locale } = useApp();
-  const t = getTranslations(locale);
+  const t = getTranslations(locale as Locale);
 
   // Calculate statistics
   const totalBooks = books.length;

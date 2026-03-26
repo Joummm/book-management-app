@@ -1,17 +1,13 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/auth/auth";
 import { NavHeader } from "@/components/NavHeader";
 import { BookForm } from "@/components/BookFormat";
 
 export default async function AddBookPage() {
-  const supabase = await createClient();
+  // Verificar autenticação
+  const user = await getAuthenticatedUser();
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
+  if (!user) {
     redirect("/auth/login");
   }
 

@@ -1,36 +1,59 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/auth/auth";
+import { sql } from "@/lib/db/client";
 import { NavHeader } from "@/components/NavHeader";
 import { BookForm } from "@/components/BookFormat";
+import type { Book } from "@/lib/types";
 
-export default async function EditBookPage({
-  params,
-}: {
+interface EditBookPageProps {
   params: Promise<{ id: string }>;
-}) {
+}
+
+export default async function EditBookPage({ params }: EditBookPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
+  
+  // Verificar autenticação
+  const user = await getAuthenticatedUser();
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
+  if (!user) {
     redirect("/auth/login");
   }
 
-  // Fetch the book
-  const { data: book } = await supabase
-    .from("books")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .single();
+  // Buscar o livro
+  const booksRaw = await sql`
+    SELECT * FROM books 
+    WHERE id = ${id} AND user_id = ${user.id}
+  `;
 
-  if (!book) {
+  if (booksRaw.length === 0) {
     redirect("/books");
   }
+
+  const bookRaw = booksRaw[0];
+  
+  // Converter para o tipo Book
+  const book: Book = {
+    id: bookRaw.id,
+    user_id: bookRaw.user_id,
+    title: bookRaw.title,
+    author: bookRaw.author,
+    cover_image: bookRaw.cover_image,
+    rating: bookRaw.rating,
+    review: bookRaw.review,
+    release_date: bookRaw.release_date,
+    start_reading_date: bookRaw.start_reading_date,
+    finish_reading_date: bookRaw.finish_reading_date,
+    pages: bookRaw.pages,
+    genres: bookRaw.genres,
+    publisher: bookRaw.publisher,
+    format: bookRaw.format,
+    characters: bookRaw.characters,
+    quotes: bookRaw.quotes,
+    would_read_again: bookRaw.would_read_again,
+    would_recommend: bookRaw.would_recommend,
+    created_at: bookRaw.created_at,
+    updated_at: bookRaw.updated_at,
+  };
 
   return (
     <div className="min-h-screen bg-background">

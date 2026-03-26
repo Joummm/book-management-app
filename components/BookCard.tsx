@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import type { Book } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,16 +31,17 @@ import {
   FileText,
 } from "lucide-react";
 import { useApp } from "@/lib/contexts/app-context";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, type Locale } from "@/lib/i18n";
 import { useToast } from "@/hooks/use-toast";
 
 interface BookCardProps {
   book: Book;
+  onDelete?: () => void;
 }
 
-export function BookCard({ book }: BookCardProps) {
+export function BookCard({ book, onDelete }: BookCardProps) {
   const { locale } = useApp();
-  const t = getTranslations(locale);
+  const t = getTranslations(locale as Locale);
   const router = useRouter();
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -90,44 +90,36 @@ export function BookCard({ book }: BookCardProps) {
   // Função para lidar com exclusão
   const handleDelete = async () => {
     setIsDeleting(true);
-    const supabase = createClient();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const response = await fetch(`/api/books/${book.id}`, {
+        method: 'DELETE',
+      });
 
-    if (!user) {
+      if (response.ok) {
+        toast({
+          title: t.bookDeleted,
+          description: `"${book.title}" ${t.wasRemovedFromCollection}`,
+        });
+        
+        if (onDelete) {
+          onDelete();
+        }
+        router.refresh();
+      } else {
+        const data = await response.json();
+        throw new Error(data.error);
+      }
+    } catch (error) {
       toast({
         title: t.error,
-        description: t.needToBeLoggedIn,
+        description: error instanceof Error ? error.message : t.anErrorOccurred,
         variant: "destructive",
       });
+    } finally {
       setIsDeleting(false);
-      return;
+      setShowDeleteDialog(false);
     }
-
-    const { error } = await supabase
-      .from("books")
-      .delete()
-      .eq("id", book.id)
-      .eq("user_id", user.id);
-
-    if (error) {
-      toast({
-        title: t.error,
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: t.bookDeleted,
-        description: `"${book.title}" ${t.wasRemovedFromCollection}`,
-      });
-      router.refresh();
-    }
-
-    setIsDeleting(false);
-    setShowDeleteDialog(false);
   };
 
   // Handler para abrir o livro

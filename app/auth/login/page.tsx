@@ -1,8 +1,7 @@
 "use client";
 
 import type React from "react";
-
-import { createClient } from "@/lib/supabase/client";
+import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,32 +13,50 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApp } from "@/lib/contexts/app-context";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, Locale } from "@/lib/i18n";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
 
-export default function LoginPage() {
+// Componente que usa useSearchParams
+function LoginForm() {
   const { locale } = useApp();
-  const t = getTranslations(locale);
+  const t = getTranslations( locale as Locale);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // Verificar se há mensagem de sucesso na URL
+    const successMsg = searchParams.get('success');
+    if (successMsg) {
+      setSuccess(successMsg);
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const supabase = createClient();
     setIsLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
-      if (error) throw error;
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error);
+      }
+
       router.push("/dashboard");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
@@ -59,6 +76,11 @@ export default function LoginPage() {
           <CardContent>
             <form onSubmit={handleLogin}>
               <div className="flex flex-col gap-6">
+                {success && (
+                  <div className="rounded-md bg-green-50 p-3 text-sm text-green-600 dark:bg-green-950 dark:text-green-400">
+                    {success}
+                  </div>
+                )}
                 <div className="grid gap-2">
                   <Label htmlFor="email">{t.email}</Label>
                   <Input
@@ -107,5 +129,14 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// Componente principal com Suspense
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">Carregando...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

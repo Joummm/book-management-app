@@ -1,6 +1,5 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useApp } from "@/lib/contexts/app-context";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, Locale } from "@/lib/i18n";
 import {
   BookOpen,
   Languages,
@@ -23,18 +22,15 @@ import {
   PlusCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 export function NavHeader() {
-  const { locale, setLocale, theme, toggleTheme } = useApp();
-  const t = getTranslations(locale);
-  const router = useRouter();
+  const { locale, setLocale, theme, toggleTheme, user, logout } = useApp();
+  const t = getTranslations(locale as Locale);
   const pathname = usePathname();
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/auth/login");
+    await logout();
   };
 
   const navItems = [
@@ -94,6 +90,13 @@ export function NavHeader() {
 
         {/* Right section with actions */}
         <div className="flex items-center gap-1 pr-4 md:pr-4">
+          {/* User Info (optional - can show name) */}
+          {user && (
+            <div className="hidden md:flex items-center mr-2 text-sm text-muted-foreground">
+              <span className="font-medium">{user.name || user.email?.split('@')[0]}</span>
+            </div>
+          )}
+
           {/* Theme Toggle */}
           <Button
             variant="ghost"

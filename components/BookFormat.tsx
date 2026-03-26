@@ -4,7 +4,6 @@ import type React from "react";
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useApp } from "@/lib/contexts/app-context";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, type Locale } from "@/lib/i18n";
 import { GENRES, type Book } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -48,7 +47,6 @@ import {
   AlertCircle,
   Bookmark,
   Star,
-  ExternalLink,
   Building,
   File,
   Heart,
@@ -65,7 +63,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import BooksPage from "@/app/books/page";
 
 interface BookFormProps {
   book?: Book;
@@ -73,7 +70,7 @@ interface BookFormProps {
 
 export function BookForm({ book }: BookFormProps) {
   const { locale } = useApp();
-  const t = getTranslations(locale);
+  const t = getTranslations(locale as Locale);
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -211,8 +208,6 @@ export function BookForm({ book }: BookFormProps) {
   const calculateReadingProgress = () => {
     if (!startReadingDate) return 0;
     if (finishReadingDate) return 100;
-
-    // If started but not finished, estimate 50%
     return 50;
   };
 
@@ -222,9 +217,9 @@ export function BookForm({ book }: BookFormProps) {
       case 1:
         return title.trim() !== "" && author.trim() !== "";
       case 2:
-        return true; // Details step is always valid
+        return true;
       case 3:
-        return true; // Personal step is always valid
+        return true;
       default:
         return false;
     }
@@ -280,7 +275,6 @@ export function BookForm({ book }: BookFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate form
     if (!title.trim() || !author.trim()) {
       toast({
         title: t.requiredFields,
@@ -293,23 +287,7 @@ export function BookForm({ book }: BookFormProps) {
 
     setIsLoading(true);
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      toast({
-        title: t.error,
-        description: t.needToBeLoggedIn,
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
-
     const bookData = {
-      user_id: user.id,
       title,
       author,
       cover_image: coverImage || null,
@@ -326,35 +304,28 @@ export function BookForm({ book }: BookFormProps) {
       quotes: quotes.length > 0 ? quotes : null,
       would_read_again: wouldReadAgain || null,
       would_recommend: wouldRecommend !== undefined ? wouldRecommend : null,
-      updated_at: new Date().toISOString(),
     };
 
     try {
-      if (book) {
-        // Update existing book
-        const { error } = await supabase
-          .from("books")
-          .update(bookData)
-          .eq("id", book.id)
-          .eq("user_id", user.id);
+      const url = book ? `/api/books/${book.id}` : '/api/books';
+      const method = book ? 'PUT' : 'POST';
 
-        if (error) throw error;
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookData),
+      });
 
-        toast({
-          title: t.bookUpdated,
-          description: `"${title}" foi atualizado com sucesso`,
-        });
-      } else {
-        // Create new book
-        const { error } = await supabase.from("books").insert([bookData]);
+      const data = await response.json();
 
-        if (error) throw error;
-
-        toast({
-          title: t.bookCreated,
-          description: `"${title}" foi adicionado à sua coleção`,
-        });
+      if (!response.ok) {
+        throw new Error(data.error);
       }
+
+      toast({
+        title: book ? t.bookUpdated : t.bookCreated,
+        description: `"${title}" foi ${book ? 'atualizado' : 'adicionado'} com sucesso`,
+      });
 
       setHasChanges(false);
       router.push("/books");
@@ -422,7 +393,6 @@ export function BookForm({ book }: BookFormProps) {
             </span>
           </Label>
 
-          {/* Image Preview or Upload */}
           <div className="border rounded-lg p-4">
             <div className="space-y-4">
               {coverImage ? (
@@ -491,7 +461,6 @@ export function BookForm({ book }: BookFormProps) {
           </div>
         </div>
 
-        {/* Reading Status Controls */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -503,7 +472,6 @@ export function BookForm({ book }: BookFormProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Status Buttons */}
             <div className="space-y-3">
               {!startReadingDate && (
                 <Button
@@ -530,7 +498,6 @@ export function BookForm({ book }: BookFormProps) {
               )}
             </div>
 
-            {/* Reading Progress */}
             {(startReadingDate || finishReadingDate) && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
@@ -543,7 +510,6 @@ export function BookForm({ book }: BookFormProps) {
               </div>
             )}
 
-            {/* Reading Dates */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="space-y-1">
                 <Label className="text-xs">{t.startDate}</Label>
@@ -569,7 +535,6 @@ export function BookForm({ book }: BookFormProps) {
 
       {/* Right Column - Basic Info */}
       <div className="space-y-6">
-        {/* Title */}
         <div className="space-y-2">
           <Label htmlFor="title" className="flex items-center gap-2">
             <Bookmark className="h-4 w-4" />
@@ -586,7 +551,6 @@ export function BookForm({ book }: BookFormProps) {
           />
         </div>
 
-        {/* Author */}
         <div className="space-y-2">
           <Label htmlFor="author" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -603,7 +567,6 @@ export function BookForm({ book }: BookFormProps) {
           />
         </div>
 
-        {/* Format */}
         <div className="space-y-3">
           <Label className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -632,7 +595,6 @@ export function BookForm({ book }: BookFormProps) {
           </div>
         </div>
 
-        {/* Rating Preview */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
             <Star className="h-4 w-4" />
@@ -667,7 +629,6 @@ export function BookForm({ book }: BookFormProps) {
           </div>
         </div>
 
-        {/* Quick Tips */}
         <Card className="bg-muted/30">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
@@ -687,9 +648,7 @@ export function BookForm({ book }: BookFormProps) {
 
   const renderStep2 = () => (
     <div className="grid lg:grid-cols-2 gap-8">
-      {/* Left Column - Book Details */}
       <div className="space-y-6">
-        {/* Dates */}
         <div className="space-y-4">
           <div className="grid gap-4">
             <div className="space-y-2">
@@ -710,7 +669,6 @@ export function BookForm({ book }: BookFormProps) {
           </div>
         </div>
 
-        {/* Pages & Publisher */}
         <div className="grid gap-4">
           <div className="space-y-2">
             <Label htmlFor="pages">
@@ -751,7 +709,6 @@ export function BookForm({ book }: BookFormProps) {
           </div>
         </div>
 
-        {/* Review */}
         <div className="space-y-4">
           <h3 className="font-medium flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -778,9 +735,7 @@ export function BookForm({ book }: BookFormProps) {
         </div>
       </div>
 
-      {/* Right Column - Genres */}
       <div className="space-y-6">
-        {/* Genres */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-medium">
@@ -795,10 +750,9 @@ export function BookForm({ book }: BookFormProps) {
             </span>
           </div>
 
-          {/* Popular Genres */}
           <div className="space-y-3">
             <Label className="text-sm text-muted-foreground">{t.popular}</Label>
-            <div className="flex flex-wrap gap-2 ">
+            <div className="flex flex-wrap gap-2">
               {GENRES.slice(0, 8).map((genre) => (
                 <Badge
                   key={genre}
@@ -817,14 +771,13 @@ export function BookForm({ book }: BookFormProps) {
             </div>
           </div>
 
-          {/* All Genres */}
           <div className="space-y-3">
             <Label className="text-sm text-muted-foreground">
               {t.allGenres}
             </Label>
-            <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto p-2 ">
+            <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto p-2">
               {GENRES.map((genre) => (
-                <div key={genre} className="flex items-center space-x-2 ">
+                <div key={genre} className="flex items-center space-x-2">
                   <Checkbox
                     id={genre}
                     checked={selectedGenres.includes(genre)}
@@ -842,7 +795,6 @@ export function BookForm({ book }: BookFormProps) {
             </div>
           </div>
 
-          {/* Custom Genre */}
           <div className="space-y-2">
             <Label>{t.customGenre}</Label>
             <div className="flex gap-2">
@@ -866,7 +818,6 @@ export function BookForm({ book }: BookFormProps) {
             </div>
           </div>
 
-          {/* Selected Genres */}
           {selectedGenres.length > 0 && (
             <div className="pt-4 border-t">
               <Label className="text-sm">{t.selectedGenres}</Label>
@@ -897,9 +848,7 @@ export function BookForm({ book }: BookFormProps) {
 
   const renderStep3 = () => (
     <div className="grid lg:grid-cols-2 gap-8">
-      {/* Left Column - Characters & Quotes */}
       <div className="space-y-6">
-        {/* Characters */}
         <div className="space-y-4">
           <h3 className="font-medium flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -966,7 +915,6 @@ export function BookForm({ book }: BookFormProps) {
           </div>
         </div>
 
-        {/* Quotes */}
         <div className="space-y-4">
           <h3 className="font-medium flex items-center gap-2">
             <Quote className="h-4 w-4" />
@@ -1024,16 +972,13 @@ export function BookForm({ book }: BookFormProps) {
         </div>
       </div>
 
-      {/* Right Column - Personal Evaluation */}
       <div className="space-y-6">
-        {/* Personal Evaluation */}
         <div className="space-y-6">
           <h3 className="font-medium flex items-center gap-2">
             <Award className="h-4 w-4" />
             {t.personalEvaluation}
           </h3>
 
-          {/* Would Read Again */}
           <div className="space-y-3">
             <Label>
               <Heart className="h-4 w-4" />
@@ -1079,7 +1024,6 @@ export function BookForm({ book }: BookFormProps) {
             </div>
           </div>
 
-          {/* Would Recommend */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>
@@ -1092,7 +1036,7 @@ export function BookForm({ book }: BookFormProps) {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <AlertCircle className="h-4 w-4 text-muted-foreground " />
+                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>{t.considerRecommending}</p>
@@ -1127,7 +1071,6 @@ export function BookForm({ book }: BookFormProps) {
           </div>
         </div>
 
-        {/* Summary */}
         <Card className="bg-muted/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">{t.summary}</CardTitle>
@@ -1178,7 +1121,6 @@ export function BookForm({ book }: BookFormProps) {
   return (
     <>
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Progress Steps */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -1227,14 +1169,10 @@ export function BookForm({ book }: BookFormProps) {
                 ),
               )}
             </div>
-            <Progress
-              value={(currentStep / totalSteps) * 100}
-              className="h-2"
-            />
+            <Progress value={(currentStep / totalSteps) * 100} className="h-2" />
           </div>
         </div>
 
-        {/* Main Form */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -1275,7 +1213,6 @@ export function BookForm({ book }: BookFormProps) {
             </div>
 
             <div className="flex gap-3 w-full sm:w-auto">
-              {/* Step 1: Cancelar e Avançar */}
               {currentStep === 1 ? (
                 <>
                   <Button
@@ -1298,7 +1235,6 @@ export function BookForm({ book }: BookFormProps) {
                 </>
               ) : null}
 
-              {/* Step 2: Voltar, Cancelar e Avançar */}
               {currentStep === 2 ? (
                 <>
                   <Button
@@ -1310,7 +1246,6 @@ export function BookForm({ book }: BookFormProps) {
                     <ChevronLeft className="h-4 w-4" />
                     {t.back}
                   </Button>
-
                   <Button
                     type="button"
                     variant="outline"
@@ -1319,7 +1254,6 @@ export function BookForm({ book }: BookFormProps) {
                   >
                     {t.cancel}
                   </Button>
-
                   <Button
                     type="button"
                     onClick={nextStep}
@@ -1331,7 +1265,6 @@ export function BookForm({ book }: BookFormProps) {
                 </>
               ) : null}
 
-              {/* Step 3: Voltar, Cancelar e Enviar */}
               {currentStep === 3 ? (
                 <>
                   <Button
@@ -1343,7 +1276,6 @@ export function BookForm({ book }: BookFormProps) {
                     <ChevronLeft className="h-4 w-4" />
                     {t.back}
                   </Button>
-
                   <Button
                     type="button"
                     variant="outline"
@@ -1352,7 +1284,6 @@ export function BookForm({ book }: BookFormProps) {
                   >
                     {t.cancel}
                   </Button>
-
                   <Button
                     type="submit"
                     form="book-form"
@@ -1377,7 +1308,6 @@ export function BookForm({ book }: BookFormProps) {
         </Card>
       </div>
 
-      {/* Exit Confirmation Dialog */}
       <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

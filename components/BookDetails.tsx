@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/contexts/app-context";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, type Locale } from "@/lib/i18n";
 import type { Book } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,17 +17,13 @@ import {
   Calendar,
   Clock,
   CheckCircle,
-  BarChart3,
   Heart,
   ThumbsUp,
   Award,
-  BookMarked,
-  Sparkles,
   Quote,
   User,
   Building,
   Hash,
-  TrendingUp,
   ArrowLeft,
   PlayCircle,
   StopCircle,
@@ -35,7 +32,6 @@ import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface BookDetailsProps {
@@ -44,7 +40,8 @@ interface BookDetailsProps {
 
 export function BookDetails({ book }: BookDetailsProps) {
   const { locale } = useApp();
-  const t = getTranslations(locale);
+  const t = getTranslations(locale as Locale);
+  const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [currentBook, setCurrentBook] = useState(book);
@@ -72,6 +69,7 @@ export function BookDetails({ book }: BookDetailsProps) {
   };
 
   const readingStatus = getReadingStatus();
+  const StatusIcon = readingStatus.icon;
 
   // Calcular progresso de forma determinística baseada nas datas
   const calculateProgress = () => {
@@ -86,23 +84,8 @@ export function BookDetails({ book }: BookDetailsProps) {
   const updateReadingDate = async (type: "start" | "finish") => {
     setIsLoading(true);
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      toast({
-        title: t.error,
-        description: t.needToBeLoggedIn,
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
-
     const today = new Date().toISOString().split("T")[0];
-    const updateData: any = {};
+    const updateData: any = { ...currentBook };
 
     if (type === "start") {
       updateData.start_reading_date = today;
@@ -111,29 +94,30 @@ export function BookDetails({ book }: BookDetailsProps) {
     }
 
     try {
-      const { error } = await supabase
-        .from("books")
-        .update(updateData)
-        .eq("id", currentBook.id)
-        .eq("user_id", user.id);
+      const response = await fetch(`/api/books/${currentBook.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error);
+      }
 
       // Atualizar o estado local
       const updatedBook = {
         ...currentBook,
-        ...updateData,
+        ...(type === "start" ? { start_reading_date: today } : { finish_reading_date: today }),
       };
       setCurrentBook(updatedBook);
 
       toast({
         title: type === "start" ? t.readingStarted : t.readingFinished,
-        description:
-          type === "start" ? t.readingStartedDesc : t.readingFinishedDesc,
+        description: type === "start" ? t.readingStartedDesc : t.readingFinishedDesc,
       });
 
-      // Recarregar a página para refletir as mudanças
-      window.location.reload();
+      router.refresh();
     } catch (error) {
       toast({
         title: t.error,
@@ -219,7 +203,7 @@ export function BookDetails({ book }: BookDetailsProps) {
                 <Badge
                   className={`${readingStatus.color} text-white gap-1 px-3 py-1`}
                 >
-                  <readingStatus.icon className="h-3 w-3" />
+                  <StatusIcon className="h-3 w-3" />
                   {readingStatus.text}
                 </Badge>
               </div>
@@ -284,10 +268,6 @@ export function BookDetails({ book }: BookDetailsProps) {
               <Button variant="outline" className="gap-2">
                 <Heart className="h-4 w-4" />
                 {t.addToFavorites}
-              </Button>
-              <Button variant="outline" className="gap-2">
-                <Sparkles className="h-4 w-4" />
-                {t.share}
               </Button>
             </div>
           </div>
@@ -615,11 +595,6 @@ export function BookDetails({ book }: BookDetailsProps) {
                           <span className="text-sm text-muted-foreground">
                             {t.quote} #{index + 1}
                           </span>
-                          {/*Implementar no Futuro o sistema de partilhar uma frase marcante*/}
-                          {/* <Button variant="ghost" size="sm" className="gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Sparkles className="h-3 w-3" />
-                            {t.shareQuote}
-                          </Button> */}
                         </div>
                       </blockquote>
                     </div>
@@ -657,7 +632,7 @@ export function BookDetails({ book }: BookDetailsProps) {
                 <p className="text-xl font-bold mt-1">{readingStatus.text}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <readingStatus.icon className="h-5 w-5 text-primary" />
+                <StatusIcon className="h-5 w-5 text-primary" />
               </div>
             </div>
           </CardContent>
@@ -703,22 +678,6 @@ export function BookDetails({ book }: BookDetailsProps) {
             </CardContent>
           </Card>
         )}
-        {/* Futuro */}
-        {/* {readingDays && (
-          <Card className="bg-info/5">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t.readingTime}</p>
-                  <p className="text-xl font-bold mt-1">{readingDays} {t.days}</p>
-                </div>
-                <div className="h-10 w-10 rounded-full bg-info/10 flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-info" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )} */}
       </div>
     </div>
   );

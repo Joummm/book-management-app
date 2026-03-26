@@ -1,63 +1,77 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET!;
 
 export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
+  // Obter o token do cookie
+  const token = request.cookies.get("auth-token")?.value;
+  
+  let user = null;
+  
+  // Verificar token JWT
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
+      user = decoded;
+    } catch (error) {
+      // Token inválido - limpar cookie se necessário
+      console.error("Token inválido:", error);
+    }
+  }
+  
+  const pathname = request.nextUrl.pathname;
+  
+  // Rotas protegidas (usuário não autenticado)
+  const protectedPaths = [
+    "/dashboard",
+    "/books",
+    "/add-book",
+    "/edit-book",
+    "/profile"
+  ];
+  
+  const isProtectedPath = protectedPaths.some(path => 
+    pathname.startsWith(path)
   );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Protect dashboard and book routes
-  if (
-    !user &&
-    (request.nextUrl.pathname.startsWith("/dashboard") ||
-      request.nextUrl.pathname.startsWith("/books") ||
-      request.nextUrl.pathname.startsWith("/add-book") ||
-      request.nextUrl.pathname.startsWith("/edit-book"))
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
+  
+  // Rotas de auth (usuário já autenticado)
+  const authPaths = [
+    "/auth/login",
+    "/auth/sign-up",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/auth/check-email"
+  ];
+  
+  const isAuthPath = authPaths.some(path => 
+    pathname.startsWith(path)
+  );
+  
+  // RAIZ - redirecionar baseado no status
+  if (pathname === "/") {
+    if (user) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    } else {
+      return NextResponse.redirect(new URL("/auth/login", request.url));
+    }
+  }
+  
+  // Se não está autenticado e tenta acessar rota protegida
+  if (!user && isProtectedPath) {
+    const url = new URL("/auth/login", request.url);
+    // Preservar a URL original para redirecionar após login
+    url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
-
-  // Redirect logged-in users away from auth pages
-  if (
-    user &&
-    (request.nextUrl.pathname.startsWith("/auth/login") ||
-      request.nextUrl.pathname.startsWith("/auth/sign-up"))
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+  
+  // Se está autenticado e tenta acessar rota de auth (exceto logout)
+  if (user && isAuthPath && pathname !== "/auth/logout") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
-
-  return supabaseResponse;
+  
+  // Continuar normalmente
+  return NextResponse.next();
 }
 
 export const config = {

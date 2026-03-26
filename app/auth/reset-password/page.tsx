@@ -1,8 +1,6 @@
 "use client";
 
 import type React from "react";
-
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,33 +12,30 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApp } from "@/lib/contexts/app-context";
-import { getTranslations } from "@/lib/i18n";
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { getTranslations, type Locale } from "@/lib/i18n";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const { locale } = useApp();
-  const t = getTranslations(locale);
+  const t = getTranslations(locale as Locale);
   const router = useRouter();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isValidSession, setIsValidSession] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user has valid recovery session
-    const checkSession = async () => {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setIsValidSession(!!session);
-    };
-    checkSession();
-  }, []);
+    // Pegar o token da URL
+    const tokenParam = searchParams.get('token');
+    if (tokenParam) {
+      setToken(tokenParam);
+    }
+  }, [searchParams]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,15 +51,25 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const supabase = createClient();
+    if (!token) {
+      setError("Token inválido ou expirado");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword }),
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error);
+      }
 
       toast({
         title: t.success || "Sucesso",
@@ -79,7 +84,7 @@ export default function ResetPasswordPage() {
     }
   };
 
-  if (!isValidSession) {
+  if (!token) {
     return (
       <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
         <div className="w-full max-w-sm">
@@ -148,5 +153,13 @@ export default function ResetPasswordPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">Carregando...</div>}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
