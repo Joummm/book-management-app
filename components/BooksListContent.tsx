@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useApp } from "@/lib/contexts/app-context";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, type Locale } from "@/lib/i18n";
 import type { Book } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,11 @@ import {
   Plus,
   Heart,
   ThumbsUp,
+  LayoutGrid,
+  LibraryBig,
+  History,
+  Maximize2,
+  CalendarDays
 } from "lucide-react";
 import {
   Sheet,
@@ -37,20 +42,16 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
-import { GENRES } from "@/lib/types";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { GENRES } from "@/lib/types";
+
+import { saveBooksToIndexedDB, getBooksFromIndexedDB } from "@/lib/db/idb";
+import { WifiOff } from "lucide-react";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
 
 interface BooksListContentProps {
   books: Book[];
@@ -62,23 +63,67 @@ interface ExtendedBook extends Omit<Book, "description" | "read_count"> {
   read_count?: number;
 }
 
-export function BooksListContent({ books }: BooksListContentProps) {
+import { useBooks } from "@/hooks/use-books";
+
+export function BooksListContent({ books: initialBooks }: BooksListContentProps) {
   const { locale } = useApp();
-  const t = getTranslations(locale);
+  const t = getTranslations(locale as Locale);
+  
+  const { data: booksData } = useBooks();
+  const [localBooks, setLocalBooks] = useState<Book[]>(booksData || initialBooks);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isOffline, setIsOffline] = useState(false);
+
+  // Sync with hook data
+  useEffect(() => {
+    if (booksData) {
+      setLocalBooks(booksData);
+      saveBooksToIndexedDB(booksData);
+    }
+  }, [booksData]);
+
+  // Sync local books when props change or load from IDB if offline
+  useEffect(() => {
+    const handleOnlineStatus = async () => {
+      const offline = !navigator.onLine;
+      setIsOffline(offline);
+      
+      if (offline && (!booksData && (!initialBooks || initialBooks.length === 0))) {
+        // Load from IndexedDB if offline and no books provided
+        const cachedBooks = await getBooksFromIndexedDB();
+        if (cachedBooks.length > 0) {
+          setLocalBooks(cachedBooks);
+        }
+      }
+    };
+
+    handleOnlineStatus();
+    window.addEventListener('online', handleOnlineStatus);
+    window.addEventListener('offline', handleOnlineStatus);
+    
+    return () => {
+      window.removeEventListener('online', handleOnlineStatus);
+      window.removeEventListener('offline', handleOnlineStatus);
+    };
+  }, [initialBooks, booksData]);
+
+  const handleDeleteBook = (bookId: string) => {
+    setLocalBooks((prev) => prev.filter((b) => b.id !== bookId));
+  };
   const [sortBy, setSortBy] = useState<string>("latest");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [wouldReadAgainFilter, setWouldReadAgainFilter] =
     useState<string>("all");
   const [wouldRecommendFilter, setWouldRecommendFilter] =
     useState<string>("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [formatFilter, setFormatFilter] = useState<string>("all");
+  const [ratingFilter, setRatingFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "bookshelf" | "timeline" | "focus">("grid");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const itemsPerPage = 12;
 
   // Cast books to ExtendedBook type for compatibility
-  const extendedBooks = books as ExtendedBook[];
+  const extendedBooks = localBooks as ExtendedBook[];
 
   // Calculate statistics for quick stats
   const totalBooks = extendedBooks.length;
@@ -88,10 +133,13 @@ export function BooksListContent({ books }: BooksListContentProps) {
   const completedBooks = extendedBooks.filter(
     (b) => b.finish_reading_date,
   ).length;
-  const ratedBooks = extendedBooks.filter((b) => b.rating).length;
+  const notStartedBooks = extendedBooks.filter(
+    (b) => !b.start_reading_date && !b.finish_reading_date,
+  ).length;
+  const ratedBooksCount = extendedBooks.filter((b) => b.rating !== null && b.rating !== undefined).length;
   const averageRating =
-    ratedBooks > 0
-      ? extendedBooks.reduce((sum, b) => sum + (b.rating || 0), 0) / ratedBooks
+    ratedBooksCount > 0
+      ? extendedBooks.reduce((sum, b) => sum + Number(b.rating || 0), 0) / ratedBooksCount
       : 0;
 
   // Filter and sort books
@@ -113,15 +161,32 @@ export function BooksListContent({ books }: BooksListContentProps) {
     const matchesWouldRecommend =
       wouldRecommendFilter === "all" ||
       (wouldRecommendFilter === "recommended" &&
-        book.would_recommend === true) ||
+        book.would_recommend === "yes") ||
       (wouldRecommendFilter === "not_recommended" &&
-        book.would_recommend === false);
+        book.would_recommend === "no") ||
+      (wouldRecommendFilter === "maybe" &&
+        book.would_recommend === "maybe");
+
+    const matchesStatus = 
+      statusFilter === "all" ||
+      (statusFilter === "reading" && book.start_reading_date && !book.finish_reading_date) ||
+      (statusFilter === "completed" && book.finish_reading_date) ||
+      (statusFilter === "not_started" && !book.start_reading_date);
+
+    const matchesFormat =
+      formatFilter === "all" || book.format === formatFilter;
+
+    const matchesRating =
+      ratingFilter === "all" || (book.rating !== null && book.rating !== undefined && book.rating >= parseInt(ratingFilter));
 
     return (
       matchesSearch &&
       matchesGenre &&
       matchesWouldReadAgain &&
-      matchesWouldRecommend
+      matchesWouldRecommend &&
+      matchesStatus &&
+      matchesFormat &&
+      matchesRating
     );
   });
 
@@ -159,17 +224,58 @@ export function BooksListContent({ books }: BooksListContentProps) {
     }
   });
 
-  // Pagination
-  const totalPages = Math.ceil(filteredBooks.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedBooks = filteredBooks.slice(startIndex, endIndex);
+  // Virtualization logic
+  const [columns, setColumns] = useState(1);
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updateColumns = () => {
+      if (viewMode === "list" || viewMode === "timeline" || viewMode === "focus") {
+        setColumns(1);
+        return;
+      }
+      if (viewMode === "bookshelf") {
+        setColumns(window.innerWidth >= 1024 ? 10 : 5);
+        return;
+      }
+      if (window.innerWidth >= 1280) setColumns(4); // xl
+      else if (window.innerWidth >= 1024) setColumns(3); // lg
+      else if (window.innerWidth >= 640) setColumns(2); // sm
+      else setColumns(1);
+    };
+    updateColumns();
+    window.addEventListener("resize", updateColumns);
+    return () => window.removeEventListener("resize", updateColumns);
+  }, [viewMode]);
+
+  const rows = useMemo(() => {
+    const r = [];
+    for (let i = 0; i < filteredBooks.length; i += columns) {
+      r.push(filteredBooks.slice(i, i + columns));
+    }
+    return r;
+  }, [filteredBooks, columns]);
+
+  const virtualizer = useWindowVirtualizer({
+    count: rows.length,
+    estimateSize: () => {
+      if (viewMode === "grid") return 480;
+      if (viewMode === "bookshelf") return 220;
+      if (viewMode === "list") return 180;
+      if (viewMode === "timeline") return 250;
+      if (viewMode === "focus") return 600;
+      return 180;
+    },
+    overscan: 5,
+    scrollMargin: parentRef.current?.offsetTop ?? 0,
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
 
   const handleGenreToggle = (genre: string) => {
     setSelectedGenres((prev) =>
       prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre],
     );
-    setCurrentPage(1);
   };
 
   const handleClearFilters = () => {
@@ -177,391 +283,355 @@ export function BooksListContent({ books }: BooksListContentProps) {
     setSelectedGenres([]);
     setWouldReadAgainFilter("all");
     setWouldRecommendFilter("all");
+    setStatusFilter("all");
+    setFormatFilter("all");
+    setRatingFilter("all");
     setSortBy("latest");
-    setCurrentPage(1);
   };
 
   const handleApplyFilters = () => {
     setIsFilterOpen(false);
   };
 
-  // Reset to first page when filters change
+  // Reset virtualizer when filters change
   useEffect(() => {
-    setCurrentPage(1);
+    virtualizer.scrollToIndex(0);
   }, [
     searchQuery,
     selectedGenres,
     sortBy,
     wouldReadAgainFilter,
     wouldRecommendFilter,
+    statusFilter,
+    formatFilter,
+    ratingFilter,
   ]);
+
+  // Completion percentage
+  const completionPct = totalBooks > 0 ? Math.round((completedBooks / totalBooks) * 100) : 0;
+  const favoritesCount = extendedBooks.filter((b) => b.is_favorite).length;
 
   return (
     <div className="space-y-6">
-      {/* Header with stats */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Premium Header */}
+      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/15 p-6">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent pointer-events-none" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative">
           <div>
+            <div className="flex items-center gap-2 mb-1">
+              <BookOpen className="h-5 w-5 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-primary">Biblioteca</span>
+            </div>
             <h1 className="text-3xl font-bold tracking-tight">{t.books}</h1>
-            <p className="text-muted-foreground">{t.manageCollection}</p>
+            <p className="text-muted-foreground text-sm mt-0.5">{t.manageCollection}</p>
           </div>
           <Link href="/add-book">
-            <Button className="gap-2 cursor-pointer">
+            <Button className="gap-2 cursor-pointer shadow-lg shadow-primary/20">
               <Plus className="h-4 w-4" />
               {t.addBook}
             </Button>
           </Link>
         </div>
 
+        {isOffline && (
+          <div className="mt-4 flex items-center gap-2 bg-destructive/10 text-destructive p-3 rounded-lg text-sm font-medium border border-destructive/20">
+            <WifiOff className="h-4 w-4" />
+            Modo Offline: A apresentar dados gravados localmente.
+          </div>
+        )}
+
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+        <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-background/70 backdrop-blur-sm border border-primary/20 rounded-xl p-3.5 flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{t.totalBooks}</span>
-              <BookOpen className="h-4 w-4 text-primary" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.totalBooks}</span>
+              <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                <BookOpen className="h-3.5 w-3.5 text-primary" />
+              </div>
             </div>
-            <div className="text-2xl font-bold mt-1">{totalBooks}</div>
+            <div className="text-3xl font-bold">{totalBooks}</div>
+            <div className="text-[11px] text-muted-foreground">{favoritesCount} favorito{favoritesCount !== 1 ? 's' : ''}</div>
           </div>
-          <div className="bg-success/5 border border-success/20 rounded-lg p-3">
+
+          <div className="bg-background/70 backdrop-blur-sm border border-amber-500/25 rounded-xl p-3.5 flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{t.reading}</span>
-              <Clock className="h-4 w-4 text-success" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">A Ler</span>
+              <div className="h-7 w-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <Clock className="h-3.5 w-3.5 text-amber-500" />
+              </div>
             </div>
-            <div className="text-2xl font-bold mt-1">{readingBooks}</div>
+            <div className="text-3xl font-bold text-amber-500">{readingBooks}</div>
+            <div className="text-[11px] text-muted-foreground">em progresso</div>
           </div>
-          <div className="bg-success/5 border border-success/20 rounded-lg p-3">
+
+          <div className="bg-background/70 backdrop-blur-sm border border-emerald-500/25 rounded-xl p-3.5 flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{t.completed}</span>
-              <TrendingUp className="h-4 w-4 text-success" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.completed}</span>
+              <div className="h-7 w-7 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+              </div>
             </div>
-            <div className="text-2xl font-bold mt-1">{completedBooks}</div>
+            <div className="text-3xl font-bold text-emerald-500">{completedBooks}</div>
+            <div className="text-[11px] text-muted-foreground">{completionPct}% da biblioteca</div>
           </div>
-          <div className="bg-success/5 border border-success/20 rounded-lg p-3">
+
+          <div className="bg-background/70 backdrop-blur-sm border border-amber-400/25 rounded-xl p-3.5 flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{t.averageRating}</span>
-              <Star className="h-4 w-4 text-success" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.averageRating}</span>
+              <div className="h-7 w-7 rounded-lg bg-amber-400/10 flex items-center justify-center">
+                <Star className="h-3.5 w-3.5 text-amber-400" />
+              </div>
             </div>
-            <div className="text-2xl font-bold mt-1">
-              {averageRating.toFixed(1)}
-            </div>
+            <div className="text-3xl font-bold text-amber-400">{averageRating.toFixed(1)}</div>
+            <div className="text-[11px] text-muted-foreground">{ratedBooksCount} avaliado{ratedBooksCount !== 1 ? 's' : ''}</div>
           </div>
         </div>
+
+        {/* Completion Progress Bar */}
+        {totalBooks > 0 && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+              <span>Progresso de Leitura</span>
+              <span className="font-semibold text-foreground">{completionPct}%</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-muted/50">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-700"
+                style={{ width: `${completionPct}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters Bar */}
-      <div className="flex flex-col gap-4 p-4 bg-card border rounded-lg">
-        <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col gap-3 p-4 bg-background border border-border/40 rounded-2xl">
+        <div className="flex flex-col md:flex-row gap-3">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
             <Input
-              placeholder={t.searchPlaceholder}
+              placeholder="Buscar por título, autor ou descrição..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-10 h-10 bg-background border-border/40 rounded-xl"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4 cursor-pointer" />
               </button>
             )}
           </div>
 
-          {/* View Toggle */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === "grid" ? "default" : "outline"}
-              size="icon"
-              onClick={() => setViewMode("grid")}
-              className="cursor-pointer"
-              title={t.gridView}
-            >
-              <Grid2x2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "outline"}
-              size="icon"
-              onClick={() => setViewMode("list")}
-              className="cursor-pointer"
-              title={t.listView}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          {/* Active Filters */}
-          <div className="flex-1 flex flex-wrap gap-2 min-h-10">
-            {selectedGenres.map((genre) => (
-              <Badge
-                key={genre}
-                variant="secondary"
-                className="gap-1 cursor-pointer hover:bg-secondary/80"
-                onClick={() => handleGenreToggle(genre)}
-              >
-                {t[genre as keyof typeof t] || genre}
-                <X className="h-3 w-3 " />
-              </Badge>
-            ))}
-            {wouldReadAgainFilter !== "all" && (
-              <Badge
-                variant="secondary"
-                className="gap-1 cursor-pointer hover:bg-secondary/80"
-                onClick={() => setWouldReadAgainFilter("all")}
-              >
-                {wouldReadAgainFilter === "yes" && t.yes}
-                {wouldReadAgainFilter === "no" && t.no}
-                {wouldReadAgainFilter === "maybe" && t.maybe}
-                <X className="h-3 w-3" />
-              </Badge>
-            )}
-            {wouldRecommendFilter !== "all" && (
-              <Badge
-                variant="secondary"
-                className="gap-1 cursor-pointer hover:bg-secondary/80"
-                onClick={() => setWouldRecommendFilter("all")}
-              >
-                {wouldRecommendFilter === "recommended" && t.recommended}
-                {wouldRecommendFilter === "not_recommended" && t.notRecommended}
-                <X className="h-3 w-3" />
-              </Badge>
-            )}
-            {(searchQuery ||
-              selectedGenres.length > 0 ||
-              wouldReadAgainFilter !== "all" ||
-              wouldRecommendFilter !== "all") && (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View Toggle */}
+            <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/40 mr-1">
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClearFilters}
-                className="h-12 px-2 text-xs cursor-pointer"
+                variant={viewMode === "grid" ? "default" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("grid")}
+                className={`cursor-pointer h-8 w-8 rounded-lg ${viewMode === "grid" ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90" : "text-muted-foreground hover:text-foreground"}`}
+                title={t.gridView}
               >
-                {t.clearAll}
+                <Grid2x2 className="h-4 w-4" />
               </Button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Sort */}
-            <div className="flex items-center gap-2">
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-45 cursor-pointer">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="latest">{t.latest}</SelectItem>
-                  <SelectItem value="oldest">{t.oldest}</SelectItem>
-                  <SelectItem value="aToZ">{t.aToZ}</SelectItem>
-                  <SelectItem value="zToA">{t.zToA}</SelectItem>
-                  <SelectItem value="highestRated">{t.highestRated}</SelectItem>
-                  <SelectItem value="lowestRated">{t.lowestRated}</SelectItem>
-                  <SelectItem value="mostRead">{t.mostRead}</SelectItem>
-                  <SelectItem value="recentlyRead">{t.recentlyRead}</SelectItem>
-                </SelectContent>
-              </Select>
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("list")}
+                className={`cursor-pointer h-8 w-8 rounded-lg ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90" : "text-muted-foreground hover:text-foreground"}`}
+                title={t.listView}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "bookshelf" ? "default" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("bookshelf")}
+                className={`cursor-pointer h-8 w-8 rounded-lg ${viewMode === "bookshelf" ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90" : "text-muted-foreground hover:text-foreground"}`}
+                title="Vista Prateleira"
+              >
+                <LibraryBig className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "timeline" ? "default" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("timeline")}
+                className={`cursor-pointer h-8 w-8 rounded-lg ${viewMode === "timeline" ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90" : "text-muted-foreground hover:text-foreground"}`}
+                title="Vista Timeline"
+              >
+                <History className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "focus" ? "default" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("focus")}
+                className={`cursor-pointer h-8 w-8 rounded-lg ${viewMode === "focus" ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90" : "text-muted-foreground hover:text-foreground"}`}
+                title="Modo Foco"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
             </div>
 
-            {/* Filter Button */}
+            {/* Status Dropdown */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[160px] h-10 bg-background border-border/40 rounded-xl cursor-pointer">
+                <SelectValue placeholder="Estado de Leitura" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all" className="cursor-pointer">
+                  <span className="flex items-center justify-between gap-3 w-full">
+                    Todos os Estados
+                    <Badge variant="secondary" className="ml-auto text-[10px] h-5 px-1.5 min-w-5 font-semibold">{totalBooks}</Badge>
+                  </span>
+                </SelectItem>
+                <SelectItem value="reading" className="cursor-pointer">
+                  <span className="flex items-center justify-between gap-3 w-full">
+                    A Ler
+                    <Badge variant="secondary" className="ml-auto text-[10px] h-5 px-1.5 min-w-5 font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border-0">{readingBooks}</Badge>
+                  </span>
+                </SelectItem>
+                <SelectItem value="completed" className="cursor-pointer">
+                  <span className="flex items-center justify-between gap-3 w-full">
+                    Lidos
+                    <Badge variant="secondary" className="ml-auto text-[10px] h-5 px-1.5 min-w-5 font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-0">{completedBooks}</Badge>
+                  </span>
+                </SelectItem>
+                <SelectItem value="not_started" className="cursor-pointer">
+                  <span className="flex items-center justify-between gap-3 w-full">
+                    Não Iniciados
+                    <Badge variant="secondary" className="ml-auto text-[10px] h-5 px-1.5 min-w-5 font-semibold">{notStartedBooks}</Badge>
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Sort */}
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[180px] h-10 bg-background border-border/40 rounded-xl cursor-pointer">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="latest" className="cursor-pointer">{t.latest}</SelectItem>
+                <SelectItem value="oldest" className="cursor-pointer">{t.oldest}</SelectItem>
+                <SelectItem value="aToZ" className="cursor-pointer">{t.aToZ}</SelectItem>
+                <SelectItem value="zToA" className="cursor-pointer">{t.zToA}</SelectItem>
+                <SelectItem value="highestRated" className="cursor-pointer">{t.highestRated}</SelectItem>
+                <SelectItem value="lowestRated" className="cursor-pointer">{t.lowestRated}</SelectItem>
+                <SelectItem value="mostRead" className="cursor-pointer">{t.mostRead}</SelectItem>
+                <SelectItem value="recentlyRead" className="cursor-pointer">{t.recentlyRead}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Filter Button & Sheet Wrapper */}
             <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" className="gap-2 cursor-pointer">
+                <Button variant="outline" className="h-10 gap-2 bg-background border-border/40 rounded-xl cursor-pointer">
                   <Filter className="h-4 w-4" />
-                  {t.filter}
+                  Filtrar
                   {(selectedGenres.length > 0 ||
                     wouldReadAgainFilter !== "all" ||
-                    wouldRecommendFilter !== "all") && (
-                    <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 ">
+                    wouldRecommendFilter !== "all" ||
+                    statusFilter !== "all" ||
+                    formatFilter !== "all" ||
+                    ratingFilter !== "all") && (
+                    <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 bg-primary/10 text-primary">
                       {selectedGenres.length +
                         (wouldReadAgainFilter !== "all" ? 1 : 0) +
-                        (wouldRecommendFilter !== "all" ? 1 : 0)}
+                        (wouldRecommendFilter !== "all" ? 1 : 0) +
+                        (statusFilter !== "all" ? 1 : 0) +
+                        (formatFilter !== "all" ? 1 : 0) +
+                        (ratingFilter !== "all" ? 1 : 0)}
                     </Badge>
                   )}
                 </Button>
               </SheetTrigger>
-              <SheetContent className="overflow-y-auto sm:max-w-md">
-                <SheetHeader>
-                  <SheetTitle>{t.filters}</SheetTitle>
-                  <SheetDescription>{t.applyFilters}</SheetDescription>
+              <SheetContent side="right" className="w-full sm:w-[420px] overflow-y-auto p-6">
+                <SheetHeader className="pb-4 border-b">
+                  <SheetTitle className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-primary" />
+                    {t.filters}
+                  </SheetTitle>
+                  <SheetDescription className="text-xs">{t.applyFilters}</SheetDescription>
                 </SheetHeader>
 
-                <div className="mt-2 space-y-6 ">
-                  {/* Genres Filter */}
-                  <div className="space-y-4 ml-5">
-                    <h3 className="text-sm font-medium">{t.genres}</h3>
-                    <div className="grid grid-cols-2 gap-3">
+                <div className="mt-4 space-y-5">
+                  {/* Genres */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.genres}</h3>
+                    <div className="flex flex-wrap gap-2">
                       {GENRES.map((genre) => (
-                        <div
+                        <button
                           key={genre}
-                          className="flex items-center space-x-2"
+                          onClick={() => handleGenreToggle(genre)}
+                          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all cursor-pointer ${
+                            selectedGenres.includes(genre)
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-muted/40 text-muted-foreground border-border/50 hover:border-primary/40 hover:text-foreground"
+                          }`}
                         >
-                          <Checkbox
-                            className="cursor-pointer"
-                            id={`filter-${genre}`}
-                            checked={selectedGenres.includes(genre)}
-                            onCheckedChange={() => handleGenreToggle(genre)}
-                          />
-                          <Label
-                            htmlFor={`filter-${genre}`}
-                            className="text-sm font-normal cursor-pointer flex-1"
-                          >
-                            {t[genre as keyof typeof t] || genre}
-                          </Label>
-                        </div>
+                          {t[genre as keyof typeof t] || genre}
+                        </button>
                       ))}
                     </div>
                   </div>
 
                   <Separator />
 
-                  {/* Would Read Again Filter */}
-                  <div className="space-y-4 ml-5">
-                    <div className="flex items-center gap-2">
-                      <Heart className="h-4 w-4 text-muted-foreground" />
-                      <h3 className="text-sm font-medium">
-                        {t.wouldReadAgain}
-                      </h3>
+                  {/* Format */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Formato</h3>
+                    <div className="flex gap-2">
+                      {[{v:"all",l:"Todos"},{v:"physical",l:"Físico"},{v:"digital",l:"Digital"}].map(({v,l}) => (
+                        <button key={v} onClick={() => setFormatFilter(v)}
+                          className={`flex-1 text-xs py-2 rounded-xl border font-medium transition-all cursor-pointer ${
+                            formatFilter === v ? "bg-primary text-primary-foreground border-primary" : "bg-muted/40 text-muted-foreground border-border/50 hover:border-primary/40"
+                          }`}>{l}</button>
+                      ))}
                     </div>
-                    <RadioGroup
-                      value={wouldReadAgainFilter}
-                      onValueChange={setWouldReadAgainFilter}
-                      className="space-y-2"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="all"
-                          id="read-again-all"
-                          className="cursor-pointer"
-                        />
-                        <Label
-                          htmlFor="read-again-all"
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {t.all}
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="yes"
-                          id="read-again-yes"
-                          className="cursor-pointer"
-                        />
-                        <Label
-                          htmlFor="read-again-yes"
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {t.yes}
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="no"
-                          id="read-again-no"
-                          className="cursor-pointer"
-                        />
-                        <Label
-                          htmlFor="read-again-no"
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {t.no}
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="maybe"
-                          id="read-again-maybe"
-                          className="cursor-pointer"
-                        />
-                        <Label
-                          htmlFor="read-again-maybe"
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {t.maybe}
-                        </Label>
-                      </div>
-                    </RadioGroup>
                   </div>
 
                   <Separator />
 
-                  {/* Would Recommend Filter */}
-                  <div className="space-y-4 ml-5">
-                    <div className="flex items-center gap-2">
-                      <ThumbsUp className="h-4 w-4 text-muted-foreground" />
-                      <h3 className="text-sm font-medium">
-                        {t.wouldRecommend}
-                      </h3>
+                  {/* Would Read Again */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.wouldReadAgain}</h3>
+                    <div className="flex gap-2 flex-wrap">
+                      {[{v:"all",l:t.all},{v:"yes",l:t.yes},{v:"no",l:t.no},{v:"maybe",l:t.maybe}].map(({v,l}) => (
+                        <button key={v} onClick={() => setWouldReadAgainFilter(v)}
+                          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all cursor-pointer ${
+                            wouldReadAgainFilter === v ? "bg-primary text-primary-foreground border-primary" : "bg-muted/40 text-muted-foreground border-border/50 hover:border-primary/40"
+                          }`}>{l}</button>
+                      ))}
                     </div>
-                    <RadioGroup
-                      value={wouldRecommendFilter}
-                      onValueChange={setWouldRecommendFilter}
-                      className="space-y-2"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="all"
-                          id="recommend-all"
-                          className="cursor-pointer"
-                        />
-                        <Label
-                          htmlFor="recommend-all"
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {t.all}
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="recommended"
-                          id="recommend-yes"
-                          className="cursor-pointer"
-                        />
-                        <Label
-                          htmlFor="recommend-yes"
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {t.yes}
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="not_recommended"
-                          id="recommend-no"
-                          className="cursor-pointer"
-                        />
-                        <Label
-                          htmlFor="recommend-no"
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {t.no}
-                        </Label>
-                      </div>
-                    </RadioGroup>
                   </div>
 
                   <Separator />
 
-                  <div className="space-y-2">
-                    <Button
-                      variant="outline"
-                      className="w-full cursor-pointer"
-                      onClick={handleClearFilters}
-                      disabled={
-                        selectedGenres.length === 0 &&
-                        wouldReadAgainFilter === "all" &&
-                        wouldRecommendFilter === "all"
-                      }
-                    >
+                  {/* Would Recommend */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.wouldRecommend}</h3>
+                    <div className="flex gap-2 flex-wrap">
+                      {[{v:"all",l:t.all},{v:"recommended",l:t.yes},{v:"not_recommended",l:t.no},{v:"maybe",l:t.maybe}].map(({v,l}) => (
+                        <button key={v} onClick={() => setWouldRecommendFilter(v)}
+                          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all cursor-pointer ${
+                            wouldRecommendFilter === v ? "bg-primary text-primary-foreground border-primary" : "bg-muted/40 text-muted-foreground border-border/50 hover:border-primary/40"
+                          }`}>{l}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex flex-col gap-2 pt-1">
+                    <Button variant="outline" className="w-full cursor-pointer" onClick={handleClearFilters}
+                      disabled={selectedGenres.length === 0 && wouldReadAgainFilter === "all" && wouldRecommendFilter === "all" && formatFilter === "all" && ratingFilter === "all"}>
                       {t.clearAllFilters}
                     </Button>
-                    <Button
-                      variant="default"
-                      className="w-full cursor-pointer"
-                      onClick={handleApplyFilters}
-                    >
+                    <Button variant="default" className="w-full cursor-pointer" onClick={handleApplyFilters}>
                       {t.applyFiltersBtn}
                     </Button>
                   </div>
@@ -570,136 +640,223 @@ export function BooksListContent({ books }: BooksListContentProps) {
             </Sheet>
           </div>
         </div>
-      </div>
 
-      {/* Results Info */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {t.showing}{" "}
-          <span className="font-semibold text-foreground">
-            {paginatedBooks.length}
-          </span>{" "}
-          {t.of}{" "}
-          <span className="font-semibold text-foreground">
-            {filteredBooks.length}
-          </span>{" "}
-          {t.books}
-          {searchQuery && (
-            <>
-              {" "}
-              {t.for} "
-              <span className="font-semibold text-foreground">
-                {searchQuery}
-              </span>
-              "
-            </>
-          )}
-        </p>
-        {filteredBooks.length > itemsPerPage && (
-          <p className="text-sm text-muted-foreground">
-            {t.page}{" "}
-            <span className="font-semibold text-foreground">{currentPage}</span>{" "}
-            {t.of}{" "}
-            <span className="font-semibold text-foreground">{totalPages}</span>
-          </p>
+        {/* Active Filters Summary underneath the main bar if any active */}
+        {(selectedGenres.length > 0 || wouldReadAgainFilter !== "all" || wouldRecommendFilter !== "all" || statusFilter !== "all" || formatFilter !== "all" || ratingFilter !== "all") && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {selectedGenres.map((genre) => (
+              <Badge key={genre} variant="secondary" className="gap-1 cursor-pointer hover:bg-secondary/80 bg-muted/60" onClick={() => handleGenreToggle(genre)}>
+                {t[genre as keyof typeof t] || genre} <X className="h-3 w-3 " />
+              </Badge>
+            ))}
+            {wouldReadAgainFilter !== "all" && (
+              <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-secondary/80 bg-muted/60" onClick={() => setWouldReadAgainFilter("all")}>
+                {wouldReadAgainFilter === "yes" && t.yes}
+                {wouldReadAgainFilter === "no" && t.no}
+                {wouldReadAgainFilter === "maybe" && t.maybe}
+                <X className="h-3 w-3" />
+              </Badge>
+            )}
+            {wouldRecommendFilter !== "all" && (
+              <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-secondary/80 bg-muted/60" onClick={() => setWouldRecommendFilter("all")}>
+                {wouldRecommendFilter === "recommended" && t.recommended}
+                {wouldRecommendFilter === "not_recommended" && t.notRecommended}
+                {wouldRecommendFilter === "maybe" && t.maybe}
+                <X className="h-3 w-3" />
+              </Badge>
+            )}
+            {statusFilter !== "all" && (
+              <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-secondary/80 bg-muted/60" onClick={() => setStatusFilter("all")}>
+                {statusFilter === "reading" && "A Ler"}
+                {statusFilter === "completed" && "Lido"}
+                {statusFilter === "not_started" && "Não Iniciado"}
+                <X className="h-3 w-3" />
+              </Badge>
+            )}
+            {formatFilter !== "all" && (
+              <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-secondary/80 bg-muted/60" onClick={() => setFormatFilter("all")}>
+                {formatFilter === "physical" && "Físico"}
+                {formatFilter === "digital" && "Digital"}
+                <X className="h-3 w-3" />
+              </Badge>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleClearFilters} className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer rounded-full ml-1">
+              Limpar filtros
+            </Button>
+          </div>
         )}
       </div>
+      <div className="flex items-center justify-between px-1">
+        <p className="text-sm text-muted-foreground">
+          A mostrar{" "}
+          <span className="font-semibold text-foreground">{filteredBooks.length}</span>{" "}
+          livro{filteredBooks.length !== 1 ? "s" : ""}
+          {searchQuery && (
+            <> para "<span className="font-semibold text-foreground">{searchQuery}</span>"</>
+          )}
+        </p>
+        <span className="text-xs text-muted-foreground">{totalBooks} no total</span>
+      </div>
 
-      {/* Books Grid/List */}
+      {/* Books Grid/List with Virtualization */}
       {filteredBooks.length > 0 ? (
-        <>
+        <div ref={parentRef} className="w-full">
           <div
-            className={
-              viewMode === "grid"
-                ? "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                : "space-y-4"
-            }
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
           >
-            {paginatedBooks.map((book) => (
-              <BookCard key={book.id} book={book} />
+            {virtualItems.map((virtualRow) => (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
+                }}
+              >
+                <div
+                  className={
+                    viewMode === "grid"
+                      ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 py-3"
+                      : viewMode === "bookshelf"
+                      ? "flex flex-wrap gap-1 items-end justify-center py-10 px-4 bg-muted/20 rounded-3xl border border-border/40"
+                      : "space-y-4 py-2"
+                  }
+                >
+                  {rows[virtualRow.index].map((book) => {
+                    if (viewMode === "focus") {
+                      return (
+                        <div key={book.id} className="max-w-4xl mx-auto py-10 px-4">
+                          <div className="grid md:grid-cols-2 gap-8 items-center bg-card p-8 rounded-3xl border border-primary/20 shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-10 opacity-5 -z-0">
+                               <BookOpen className="h-64 w-64 rotate-12" />
+                            </div>
+                            <div className="relative z-10 aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl">
+                               {book.cover_image ? (
+                                 <img src={book.cover_image} alt={book.title} className="w-full h-full object-cover" />
+                               ) : (
+                                 <div className="w-full h-full bg-muted flex items-center justify-center">
+                                   <BookOpen className="h-20 w-20 text-muted-foreground/30" />
+                                 </div>
+                               )}
+                            </div>
+                            <div className="relative z-10 space-y-6">
+                               <div>
+                                 <Badge className="mb-4 bg-primary/10 text-primary hover:bg-primary/20 border-0 uppercase tracking-widest text-[10px]">A ler agora</Badge>
+                                 <h2 className="text-4xl font-bold font-serif leading-tight">{book.title}</h2>
+                                 <p className="text-xl text-muted-foreground font-medium mt-2">{book.author}</p>
+                               </div>
+                               
+                               <div className="space-y-2">
+                                  <div className="flex justify-between text-sm font-bold">
+                                     <span className="text-muted-foreground uppercase tracking-tighter">Progresso</span>
+                                     <span className="text-primary">{book.pages ? "Em curso" : "N/A"}</span>
+                                  </div>
+                                  <div className="h-3 w-full bg-muted rounded-full overflow-hidden">
+                                     <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: "65%" }} />
+                                  </div>
+                               </div>
+
+                               <div className="flex gap-4">
+                                  <Link href={`/books/${book.id}`} className="flex-1">
+                                    <Button className="w-full h-12 rounded-xl text-base font-bold shadow-xl shadow-primary/20">Continuar Leitura</Button>
+                                  </Link>
+                                  <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl" onClick={() => setViewMode("grid")}><X className="h-5 w-5" /></Button>
+                               </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    if (viewMode === "timeline") {
+                      return (
+                        <div key={book.id} className="relative pl-12 pb-12 group">
+                          {/* Timeline Line */}
+                          <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border/60 group-last:bottom-full" />
+                          {/* Timeline Dot */}
+                          <div className="absolute left-0 top-2 w-8 h-8 rounded-full bg-background border-2 border-primary flex items-center justify-center z-10 group-hover:scale-110 transition-transform">
+                             <CalendarDays className="h-4 w-4 text-primary" />
+                          </div>
+                          
+                          <div className="flex flex-col md:flex-row gap-6 bg-card/40 hover:bg-card p-6 rounded-2xl border border-border/50 hover:border-primary/30 transition-all duration-300">
+                             <div className="w-24 h-32 shrink-0 rounded-lg overflow-hidden shadow-md">
+                                {book.cover_image ? (
+                                  <img src={book.cover_image} alt={book.title} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full bg-muted flex items-center justify-center">
+                                    <BookOpen className="h-8 w-8 text-muted-foreground/30" />
+                                  </div>
+                                )}
+                             </div>
+                             <div className="space-y-2">
+                                <p className="text-xs font-bold text-primary uppercase tracking-widest">
+                                  {book.finish_reading_date ? format(new Date(book.finish_reading_date), "dd 'de' MMMM, yyyy", { locale: pt }) : "Data desconhecida"}
+                                </p>
+                                <h3 className="text-xl font-bold">{book.title}</h3>
+                                <p className="text-muted-foreground">{book.author}</p>
+                                <div className="flex items-center gap-1.5 mt-2">
+                                   <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                                   <span className="font-bold text-amber-600">{book.rating ? Number(book.rating).toFixed(1) : "N/A"}</span>
+                                </div>
+                             </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <BookCard
+                        key={book.id}
+                        book={book}
+                        layout={viewMode === "bookshelf" ? "bookshelf" : viewMode}
+                        onDelete={() => handleDeleteBook(book.id)}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
             ))}
           </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.max(prev - 1, 1))
-                    }
-                    className={
-                      currentPage === 1
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNumber;
-                  if (totalPages <= 5) {
-                    pageNumber = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNumber = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNumber = totalPages - 4 + i;
-                  } else {
-                    pageNumber = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <PaginationItem key={pageNumber}>
-                      <PaginationLink
-                        isActive={currentPage === pageNumber}
-                        onClick={() => setCurrentPage(pageNumber)}
-                        className="cursor-pointer"
-                      >
-                        {pageNumber}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                })}
-
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                    }
-                    className={
-                      currentPage === totalPages
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          )}
-        </>
+        </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center border rounded-lg bg-muted/20">
-          <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium mb-2">{t.noBooksFound}</h3>
-          <p className="text-muted-foreground mb-6 max-w-md">
+        <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl border border-dashed border-border/60 bg-muted/10">
+          <div className="h-20 w-20 rounded-2xl bg-primary/8 border border-primary/15 flex items-center justify-center mb-5">
+            <BookOpen className="h-9 w-9 text-primary/50" />
+          </div>
+          <h3 className="text-xl font-semibold mb-2">
+            {searchQuery || selectedGenres.length > 0 || statusFilter !== "all" || formatFilter !== "all" || ratingFilter !== "all"
+              ? "Nenhum livro encontrado"
+              : "A biblioteca está vazia"}
+          </h3>
+          <p className="text-muted-foreground mb-6 max-w-sm text-sm">
             {searchQuery
-              ? t.noBooksForQuery.replace("{query}", searchQuery)
-              : t.noBooksMatchFilters}
+              ? `Sem resultados para "${searchQuery}". Tenta outro termo.`
+              : selectedGenres.length > 0 || statusFilter !== "all" || formatFilter !== "all" || ratingFilter !== "all"
+              ? "Nenhum livro corresponde aos filtros selecionados."
+              : "Ainda não adicionaste nenhum livro. Começa a construir a tua biblioteca!"}
           </p>
-          {(searchQuery ||
-            selectedGenres.length > 0 ||
-            wouldReadAgainFilter !== "all" ||
-            wouldRecommendFilter !== "all") && (
-            <Button
-              variant="outline"
-              onClick={handleClearFilters}
-              className="gap-2 cursor-pointer"
-            >
-              <X className="h-4 w-4" />
-              {t.clearFiltersSearch}
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-2 justify-center">
+            {(searchQuery || selectedGenres.length > 0 || wouldReadAgainFilter !== "all" || wouldRecommendFilter !== "all" || statusFilter !== "all" || formatFilter !== "all" || ratingFilter !== "all") && (
+              <Button variant="outline" onClick={handleClearFilters} className="gap-2 cursor-pointer">
+                <X className="h-4 w-4" />
+                Limpar Filtros
+              </Button>
+            )}
+            <Link href="/add-book">
+              <Button className="gap-2 cursor-pointer">
+                <Plus className="h-4 w-4" />
+                Adicionar Livro
+              </Button>
+            </Link>
+          </div>
         </div>
       )}
     </div>

@@ -4,6 +4,7 @@ import { sql } from "@/lib/db/client";
 import { NavHeader } from "@/components/NavHeader";
 import { BookForm } from "@/components/BookFormat";
 import type { Book } from "@/lib/types";
+import { Footer } from "@/components/Footer";
 
 interface EditBookPageProps {
   params: Promise<{ id: string }>;
@@ -21,8 +22,16 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
 
   // Buscar o livro
   const booksRaw = await sql`
-    SELECT * FROM books 
-    WHERE id = ${id} AND user_id = ${user.id}
+    SELECT b.*,
+      COALESCE(
+        (SELECT json_agg(a.*)
+         FROM authors a
+         JOIN book_authors ba ON a.id = ba.author_id
+         WHERE ba.book_id = b.id),
+        '[]'::json
+      ) as authors
+    FROM books b
+    WHERE b.id = ${id} AND b.user_id = ${user.id}
   `;
 
   if (booksRaw.length === 0) {
@@ -51,6 +60,7 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
     quotes: bookRaw.quotes,
     would_read_again: bookRaw.would_read_again,
     would_recommend: bookRaw.would_recommend,
+    authors: bookRaw.authors,
     created_at: bookRaw.created_at,
     updated_at: bookRaw.updated_at,
   };
@@ -61,11 +71,7 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
       <main className="container mx-auto px-4 md:px-6 lg:px-8 py-8 max-w-7xl">
         <BookForm book={book} />
       </main>
-      <footer className="border-t py-6 mt-12">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          © 2026 João Nunes | All rights reserved
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

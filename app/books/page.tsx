@@ -4,6 +4,7 @@ import { sql } from "@/lib/db/client";
 import { NavHeader } from "@/components/NavHeader";
 import { BooksListContent } from "@/components/BooksListContent";
 import type { Book } from "@/lib/types";
+import { Footer } from "@/components/Footer";
 
 export default async function BooksPage() {
   // Verificar autenticação no servidor
@@ -13,11 +14,26 @@ export default async function BooksPage() {
     redirect("/auth/login");
   }
 
-  // Buscar livros do usuário
+  // Buscar livros do usuário com suas coleções
   const booksRaw = await sql`
-    SELECT * FROM books 
-    WHERE user_id = ${user.id}
-    ORDER BY created_at DESC
+    SELECT b.*, 
+      COALESCE(
+        (SELECT json_agg(c.*) 
+         FROM collections c 
+         JOIN book_collections bc ON c.id = bc.collection_id 
+         WHERE bc.book_id = b.id), 
+        '[]'::json
+      ) as collections,
+      COALESCE(
+        (SELECT json_agg(a.*)
+         FROM authors a
+         JOIN book_authors ba ON a.id = ba.author_id
+         WHERE ba.book_id = b.id),
+        '[]'::json
+      ) as authors
+    FROM books b
+    WHERE b.user_id = ${user.id}
+    ORDER BY b.created_at DESC
   `;
 
   // Converter para o tipo Book
@@ -40,21 +56,19 @@ export default async function BooksPage() {
     quotes: book.quotes,
     would_read_again: book.would_read_again,
     would_recommend: book.would_recommend,
+    collections: book.collections,
+    authors: book.authors,
     created_at: book.created_at,
     updated_at: book.updated_at,
   }));
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <NavHeader />
-      <main className="container mx-auto px-4 md:px-6 lg:px-8 py-8 max-w-7xl">
+      <main className="flex-1 container mx-auto px-4 md:px-6 lg:px-8 py-8 max-w-7xl">
         <BooksListContent books={books} />
       </main>
-      <footer className="border-t py-6 mt-12">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          © 2026 João Nunes | All rights reserved
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

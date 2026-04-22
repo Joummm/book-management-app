@@ -21,10 +21,32 @@ export async function GET(
     `;
     
     if (books.length === 0) {
-      return NextResponse.json({ error: 'Livro não encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
     }
+
+    // Buscar coleções do livro
+    const collections = await sql`
+      SELECT c.* 
+      FROM collections c
+      JOIN book_collections bc ON c.id = bc.collection_id
+      WHERE bc.book_id = ${id}
+    `;
+
+    // Buscar autores do livro
+    const authors = await sql`
+      SELECT a.*
+      FROM authors a
+      JOIN book_authors ba ON a.id = ba.author_id
+      WHERE ba.book_id = ${id}
+    `;
     
-    return NextResponse.json({ book: books[0] });
+    return NextResponse.json({ 
+      book: {
+        ...books[0],
+        collections,
+        authors
+      } 
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erro ao buscar livro' },
@@ -64,6 +86,9 @@ export async function PUT(
       quotes,
       would_read_again,
       would_recommend,
+      is_favorite,
+      collections, // IDs das coleções
+      author_ids, // IDs dos autores
     } = body;
     
     const result = await sql`
@@ -84,6 +109,7 @@ export async function PUT(
         quotes = ${quotes || null},
         would_read_again = ${would_read_again || null},
         would_recommend = ${would_recommend !== undefined ? would_recommend : null},
+        is_favorite = ${is_favorite !== undefined ? is_favorite : false},
         updated_at = NOW()
       WHERE id = ${id} AND user_id = ${user.id}
       RETURNING *
@@ -92,8 +118,46 @@ export async function PUT(
     if (result.length === 0) {
       return NextResponse.json({ error: 'Livro não encontrado' }, { status: 404 });
     }
+
+    const updatedBook = result[0];
+
+    // Atualizar associações de coleções se fornecidas
+    if (collections && Array.isArray(collections)) {
+      // Remover associações existentes
+      await sql`DELETE FROM book_collections WHERE book_id = ${id}`;
+      
+      // Adicionar novas associações
+      if (collections.length > 0) {
+        for (const collectionId of collections) {
+          await sql`
+            INSERT INTO book_collections (book_id, collection_id)
+            VALUES (${id}, ${collectionId})
+          `;
+        }
+      }
+    }
+
+    // Atualizar associações de autores se fornecidas
+    if (author_ids && Array.isArray(author_ids)) {
+      // Remover associações existentes
+      await sql`DELETE FROM book_authors WHERE book_id = ${id}`;
+      
+      // Adicionar novas associações
+      if (author_ids.length > 0) {
+        for (const authorId of author_ids) {
+          await sql`
+            INSERT INTO book_authors (book_id, author_id)
+            VALUES (${id}, ${authorId})
+          `;
+        }
+      }
+    }
     
-    return NextResponse.json({ book: result[0] });
+    // Check for new badges
+    const { checkAndGrantBadges } = await import('@/lib/gamification');
+    const newBadges = await checkAndGrantBadges(user.id);
+    
+    return NextResponse.json({ book: updatedBook, newBadges });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erro ao atualizar livro' },
@@ -104,13 +168,15 @@ export async function PUT(
 
 // DELETE - Remover livro
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
     const user = await getAuthenticatedUser();
     
+    console.log(`Tentativa de eliminar livro: ${id} para utilizador: ${user?.id}`);
+
     if (!user) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
@@ -122,11 +188,14 @@ export async function DELETE(
     `;
     
     if (result.length === 0) {
+      console.log(`Livro não encontrado ou sem permissão: ${id}`);
       return NextResponse.json({ error: 'Livro não encontrado' }, { status: 404 });
     }
     
+    console.log(`Livro eliminado com sucesso: ${id}`);
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('Erro ao deletar livro:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erro ao deletar livro' },
       { status: 500 }

@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { motion } from "framer-motion";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,8 +67,22 @@ function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
+    <div className="flex min-h-svh w-full flex-col items-center justify-center p-6 md:p-10 relative overflow-hidden">
+      {/* Decorative background for login */}
+      <div className="absolute top-0 left-0 w-full h-full -z-10 bg-linear-to-b from-primary/5 to-background" />
+      
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="w-full max-w-sm z-10"
+      >
+        <div className="flex flex-col items-center gap-4 mb-10">
+           <div className="h-28 w-28 flex items-center justify-center transition-transform duration-500 hover:scale-105 rounded-full overflow-hidden shadow-2xl border-4 border-background">
+             <img src="/icon-512x512.png" alt="Logo" className="h-full w-full object-cover scale-110" />
+           </div>
+           <h1 className="text-3xl font-bold tracking-tight">BookManager</h1>
+        </div>
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">{t.login}</CardTitle>
@@ -127,7 +142,7 @@ function LoginForm() {
             </form>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
     </div>
   );
 }

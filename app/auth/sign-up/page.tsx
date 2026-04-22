@@ -67,8 +67,14 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+    <div className="flex min-h-svh w-full flex-col items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
+        <div className="flex flex-col items-center gap-4 mb-10">
+           <div className="h-28 w-28 flex items-center justify-center transition-transform duration-500 hover:scale-105 rounded-full overflow-hidden shadow-2xl border-4 border-background">
+             <img src="/icon-512x512.png" alt="Logo" className="h-full w-full object-cover scale-110" />
+           </div>
+           <h1 className="text-3xl font-bold tracking-tight">BookManager</h1>
+        </div>
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">{t.signUp}</CardTitle>
